@@ -5,6 +5,40 @@
 <mapper namespace="com.atguigu.tingshu.album.mapper.AlbumInfoMapper">
 
 
-
+    <select id="findUserAlbumPage" resultType="com.atguigu.tingshu.vo.album.AlbumListVo">
+        select
+            t1.id as album_id,
+            t1.album_title,
+            t1.cover_url,
+            t1.include_track_count,
+            t1.is_finished,
+            t1.`status`,
+            als.stat_type,
+            MAX(CASE WHEN als.stat_type = '0401' THEN als.stat_num ELSE 0 END) AS play_stat_num,
+            MAX(CASE WHEN als.stat_type = '0402' THEN als.stat_num ELSE 0 END) AS subscribe_stat_num,
+            MAX(CASE WHEN als.stat_type = '0403' THEN als.stat_num ELSE 0 END) AS buy_stat_num,
+            MAX(CASE WHEN als.stat_type = '0404' THEN als.stat_num ELSE 0 END) AS comment_stat_num
+        from
+            (
+                select
+                    *
+                from
+                    album_info ai
+                <trim prefix="where" prefixOverrides="and|or">
+                    <if test="query.albumTitle != null">
+                        and ai.album_title like concat('%', #{query.albumTitle}, '%')
+                    </if>
+                    <if test="query.status != null and query.status.length()>0">
+                        and ai.`status` = #{query.status}
+                    </if>
+                    <if test="query.userId != null">
+                        and ai.user_id = #{query.userId}
+                    </if>
+                </trim>
+                    limit 0, 10) t1
+                left join album_stat als on t1.id = als.album_id and als.is_deleted = 0
+        GROUP BY t1.id
+        order by t1.id desc
+    </select>
 </mapper>
 

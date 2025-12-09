@@ -23,7 +23,7 @@
         from base_attribute ba
                  inner join base_attribute_value bav on ba.id = bav.attribute_id and bav.is_deleted = 0
         where
-            category1_id = #{category1Id} and ba.is_deleted = 0;
+            category1_id = #{category1Id} and ba.is_deleted = 0
     </select>
 </mapper>
 

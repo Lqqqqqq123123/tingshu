@@ -1,6 +1,6 @@
 package com.atguigu.tingshu.order.helper;
 
-import com.atguigu.tingshu.common.execption.GuiguException;
+import com.atguigu.tingshu.common.execption.BusinessException;
 import com.atguigu.tingshu.common.result.ResultCodeEnum;
 import com.atguigu.tingshu.common.util.MD5;
 import lombok.extern.slf4j.Slf4j;
@@ -22,12 +22,12 @@ public class SignHelper {
         //校验签名时间
         Long remoteTimestamp = (Long)parameterMap.get("timestamp");
         if(StringUtils.isEmpty(remoteTimestamp)){
-            throw new GuiguException(ResultCodeEnum.SIGN_ERROR);
+            throw new BusinessException(ResultCodeEnum.SIGN_ERROR);
         }
         long currentTimestamp = getTimestamp();
         if (Math.abs(currentTimestamp - remoteTimestamp) > 500000) {
             log.error("签名已过期，服务器当前时间:{}", currentTimestamp);
-            throw new GuiguException(ResultCodeEnum.SIGN_OVERDUE);
+            throw new BusinessException(ResultCodeEnum.SIGN_OVERDUE);
         }
 
         //校验签名
@@ -35,11 +35,11 @@ public class SignHelper {
 
         String signLocal = getSign(parameterMap);
         if(StringUtils.isEmpty(signRemote)){
-            throw new GuiguException(ResultCodeEnum.SIGN_ERROR);
+            throw new BusinessException(ResultCodeEnum.SIGN_ERROR);
         }
 
         if(!signRemote.equals(signLocal)){
-            throw new GuiguException(ResultCodeEnum.SIGN_ERROR);
+            throw new BusinessException(ResultCodeEnum.SIGN_ERROR);
         }
     }
 

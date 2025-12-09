@@ -8,7 +8,7 @@ import lombok.Data;
  *
  */
 @Data
-public class GuiguException extends RuntimeException {
+public class BusinessException extends RuntimeException {
 
     private Integer code;
 
@@ -19,7 +19,7 @@ public class GuiguException extends RuntimeException {
      * @param code
      * @param message
      */
-    public GuiguException(Integer code, String message) {
+    public BusinessException(Integer code, String message) {
         super(message);
         this.code = code;
         this.message = message;
@@ -29,7 +29,7 @@ public class GuiguException extends RuntimeException {
      * 接收枚举类型对象
      * @param resultCodeEnum
      */
-    public GuiguException(ResultCodeEnum resultCodeEnum) {
+    public BusinessException(ResultCodeEnum resultCodeEnum) {
         super(resultCodeEnum.getMessage());
         this.code = resultCodeEnum.getCode();
         this.message = resultCodeEnum.getMessage();

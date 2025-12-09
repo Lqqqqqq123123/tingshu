@@ -41,8 +41,5 @@ public class BaseCategoryApiController {
         return Result.ok(baseCategoryService.getBaseAttributeListByCategory1Id(category1Id));
     }
 
-
-
-
 }
 

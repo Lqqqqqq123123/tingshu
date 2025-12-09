@@ -1,6 +1,6 @@
 package com.atguigu.tingshu.common.handler;
 
-import com.atguigu.tingshu.common.execption.GuiguException;
+import com.atguigu.tingshu.common.execption.BusinessException;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.result.ResultCodeEnum;
 import lombok.extern.slf4j.Slf4j;
@@ -37,10 +37,10 @@ public class GlobalExceptionHandler {
      * @param e
      * @return
      */
-    @ExceptionHandler(GuiguException.class)
+    @ExceptionHandler(BusinessException.class)
     @ResponseBody
-    public Result error(GuiguException e) {
-        log.error("触发GuiguException异常拦截:{}", e);
+    public Result error(BusinessException e) {
+        log.error("触发BusinessException异常拦截:{}", e);
         return Result.build(null, e.getCode(), e.getMessage());
     }
 
