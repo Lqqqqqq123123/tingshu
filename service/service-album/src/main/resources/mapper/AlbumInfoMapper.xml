@@ -35,7 +35,7 @@
                         and ai.user_id = #{query.userId}
                     </if>
                 </trim>
-                    limit 0, 10) t1
+                    ) t1
                 left join album_stat als on t1.id = als.album_id and als.is_deleted = 0
         GROUP BY t1.id
         order by t1.id desc

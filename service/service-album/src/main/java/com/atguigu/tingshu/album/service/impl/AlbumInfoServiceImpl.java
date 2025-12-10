@@ -6,6 +6,7 @@ import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.service.AlbumAttributeValueService;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
+import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
@@ -22,9 +23,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.atguigu.tingshu.common.constant.SystemConstant.ALBUM_PAY_TYPE_REQUIRE;
+import static com.atguigu.tingshu.common.constant.SystemConstant.ALBUM_PAY_TYPE_VIPFREE;
 
 @Slf4j
 @Service
@@ -40,6 +45,9 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
     @Autowired
     private AlbumStatMapper albumStatMapper;
 
+    @Autowired
+    private AuditService auditService;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void savaAlbumInfo(AlbumInfoVo vo, Long userId) {
@@ -49,10 +57,13 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
         // 1.1 vo --> po
         AlbumInfo po = BeanUtil.copyProperties(vo, AlbumInfo.class);
-
+        String payType = vo.getPayType();
         // 1.2封装其他字段
         po.setUserId(userId);
-        po.setTracksForFree(5);
+        if (ALBUM_PAY_TYPE_VIPFREE.equals(payType) || ALBUM_PAY_TYPE_REQUIRE.equals(payType)) {
+            //只需要对VIP免费或付费资源设置试听集
+            po.setTracksForFree(SystemConstant.TRACKS_FOR_FREE_NUM);
+        }
         po.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
 
         albumInfoMapper.insert(po); // 保存专辑信息，回显主键
@@ -81,7 +92,20 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         saveAlbumInfoStat(po.getId(), "0403", 0);
         saveAlbumInfoStat(po.getId(), "0404", 0);
 
-        // 4. todo 对专辑中文本内容进行审核  & 索引库ES中新增记录
+        // 4.对专辑中文本内容进行审核  & 索引库ES中新增记录
+        String text = po.getAlbumTitle() + po.getAlbumIntro();
+
+        String suggestion = auditService.auditText(text);
+
+        if ("pass".equals(suggestion)) {
+            po.setStatus(SystemConstant.ALBUM_STATUS_PASS);
+            //TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
+        } else if ("review".equals(suggestion)) {
+            po.setStatus(SystemConstant.ALBUM_STATUS_REVIEW);
+        } else if ("block".equals(suggestion)) {
+            po.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
+        }
+        albumInfoMapper.updateById(po);
 
     }
 
@@ -152,7 +176,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         );
 
         List<AlbumAttributeValueVo> tlist = vo.getAlbumAttributeValueVoList();
-        if(tlist == null || tlist.size() == 0){
+        if(!CollectionUtils.isEmpty(tlist)){
             List<AlbumAttributeValue> list = tlist
                     .stream()
                     .map(t ->{
@@ -168,8 +192,20 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
         // 3. 对于统计信息表,不用修改
 
-        // 4. todo：再次对专辑内容进行审核
+        // 4. 再次对专辑内容进行审核（同步审核）
+        String text = po.getAlbumTitle() + po.getAlbumIntro();
 
+        String suggestion = auditService.auditText(text);
+
+        if ("pass".equals(suggestion)) {
+            po.setStatus(SystemConstant.ALBUM_STATUS_PASS);
+            //TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
+        } else if ("review".equals(suggestion)) {
+            po.setStatus(SystemConstant.ALBUM_STATUS_REVIEW);
+        } else if ("block".equals(suggestion)) {
+            po.setStatus(SystemConstant.ALBUM_STATUS_NO_PASS);
+        }
+        albumInfoMapper.updateById(po);
 
     }
 }

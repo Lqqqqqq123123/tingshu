@@ -45,6 +45,8 @@ public enum ResultCodeEnum {
     EXIST_NO_EXPIRE_LIVE(230, "当前存在未过期直播"),
 
     REPEAT_BUY_ERROR(231, "已经购买过该专辑"),
+    IMAGE_AUDIT_FAIL(232, "图片内容审核失败"),
+    IMAGE_AUDIT_REVIEW(233, "图片内容可能存在问题，需要人工复审")
 
     ;
 

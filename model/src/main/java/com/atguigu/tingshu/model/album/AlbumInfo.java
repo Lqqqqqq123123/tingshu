@@ -3,6 +3,7 @@ package com.atguigu.tingshu.model.album;
 import com.atguigu.tingshu.model.base.BaseEntity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -12,6 +13,8 @@ import java.util.List;
 @Data
 @Schema(description = "AlbumInfo")
 @TableName("album_info")
+
+@JsonInclude(JsonInclude.Include.NON_NULL) // 第二种解决方法：在响应结果中，如果属性值为null，则不返回该属性
 public class AlbumInfo extends BaseEntity {
 
 	private static final long serialVersionUID = 1L;

@@ -14,6 +14,8 @@ public class SystemConstant {
     //专辑状态 0301-审核通过 0302-审核不通过
     public static final String  ALBUM_STATUS_PASS="0301";  // 审核通过
     public static final String  ALBUM_STATUS_NO_PASS="0302";  // 审核不通过
+    public static final String ALBUM_STATUS_REVIEW = "0303"; // 人工复审
+
 
     //专辑统计 0401-播放量 0402-订阅量 0403-购买量 0403-评论数
     public static final String  ALBUM_STAT_PLAY="0401";  // 播放量
@@ -24,6 +26,8 @@ public class SystemConstant {
     //声音状态 0501-审核通过 0502"-审核不通过
     public static final String  TRACK_STATUS_PASS="0501";  // 审核通过
     public static final String  TRACK_STATUS_NO_PASS="0502";  // 审核不通过
+    public static final String  TRACK_STATUS_REVIEWING="0503";  // 审核中
+    public static final String  TRACK_STATUS_REVIEW="0504";  // 人工复审
 
     //声音来源 0601-用户原创 0602-上传
     public static final String  TRACK_SOURCE_USER="0601";  // 用户原创
@@ -35,6 +39,8 @@ public class SystemConstant {
     public static final String  TRACK_STAT_PRAISE="0703";  // 点赞量
     public static final String  TRACK_STAT_COMMENT="0704";  // 评论数
 
+    // 免费试听数
+    public static final int TRACKS_FOR_FREE_NUM=5;
     //用户状态 0801-正常 0802-锁定
     public static final String  USER_STATUS_NORMAL="0801";  // 正常
     public static final String  USER_STATUS_LOCK="0802";  // 锁定
@@ -71,4 +77,6 @@ public class SystemConstant {
     //订单减免类型 1405-专辑折扣 1406-VIP服务折
     public static final String  ORDER_DERATE_ALBUM_DISCOUNT="1405";  // 专辑折扣
     public static final String  ORDER_DERATE_VIP_SERVICE_DISCOUNT="1406";  // VIP服务折扣
+
+
 }

@@ -1,8 +1,11 @@
 package com.atguigu.tingshu.album.service.impl;
 
 import com.atguigu.tingshu.album.config.MinioConstantProperties;
+import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.album.service.FileUploadService;
+import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.execption.BusinessException;
+import com.atguigu.tingshu.common.result.ResultCodeEnum;
 import io.minio.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,9 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Autowired
     private MinioConstantProperties minioConstantProperties;
 
+    @Autowired
+    private AuditService auditService;
+
     private final String BUCKET_NAME = "tingshu";
 
     @Override
@@ -39,20 +45,32 @@ public class FileUploadServiceImpl implements FileUploadService {
          * 无法识别格式 / 不是图片 / 流损坏 / 不支持的图片类型 → 返回 null；
          * 不是因为“流为空”，而是因为“无法解析为有效图像”。
          */
-//        try (InputStream is = file.getInputStream()) {
-//            BufferedImage image = ImageIO.read(is);
-//            if (image == null) {
-//                throw new BusinessException(500, "图片文件格式不合法");
-//            }
-//            // ...
-//            int width = image.getWidth();
-//            int height = image.getHeight();
-//
-//            if(width > 900 || height > 900){
-//                throw new BusinessException(500, "图片文件大小不能超过500*500");
-//            }
-//        }
+        try (InputStream is = file.getInputStream()) {
+            BufferedImage image = ImageIO.read(is);
+            if (image == null) {
+                throw new BusinessException(500, "图片文件格式不合法");
+            }
+            // ...
+            int width = image.getWidth();
+            int height = image.getHeight();
 
+            if(width > 900 || height > 900){
+                throw new BusinessException(500, "图片文件大小不能超过900*900");
+            }
+        }
+
+        // todo:对图片内容进行审核
+        String suggestion = auditService.auditImage(file);
+
+        if("block".equals(suggestion)){
+            log.info("图片内容审核结果为fail");
+            throw new BusinessException(ResultCodeEnum.IMAGE_AUDIT_FAIL);
+        }else if("review".equals(suggestion)){
+            log.info("图片内容审核结果为review，需要人工复审");
+            throw new BusinessException(ResultCodeEnum.IMAGE_AUDIT_REVIEW);
+        }else if("pass".equals(suggestion)){
+            log.info("图片内容审核结果为pass");
+        }
 
         // 1. 判断桶是否存在
         boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(BUCKET_NAME).build());
