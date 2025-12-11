@@ -17,10 +17,10 @@ public class AuthContextHolder {
         userId.set(_userId);
     }
 
-    // todo:暂时先硬编码，因为还没写登录
+    // 暂时先硬编码，因为还没写登录 td已完成
     public static Long getUserId() {
-        return 1L;
-        // return userId.get();
+        // return 1L;
+        return userId.get();
     }
 
     public static void removeUserId() {
