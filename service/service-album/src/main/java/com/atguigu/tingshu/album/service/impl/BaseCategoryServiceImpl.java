@@ -7,6 +7,7 @@ import com.atguigu.tingshu.album.service.BaseCategoryService;
 import com.atguigu.tingshu.model.album.BaseAttribute;
 import com.atguigu.tingshu.model.album.BaseCategory1;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -99,5 +100,18 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     public List<BaseAttribute> getBaseAttributeListByCategory1Id(Long category1Id) {
         // 1. 将表 base_attribute 与 base_attribute_value 关联
         return baseAttributeMapper.getBaseAttributeListByCategory1Id(category1Id);
+    }
+
+    /**
+     * 根据三级分类ID查询分类视图
+     * @param category3Id
+     * @return
+     */
+    @Override
+    public BaseCategoryView getCategoryView(Long category3Id) {
+
+        LambdaQueryWrapper<BaseCategoryView> wr = new LambdaQueryWrapper<>();
+        wr.eq(BaseCategoryView::getCategory3Id, category3Id);
+        return baseCategoryViewMapper.selectOne(wr);
     }
 }

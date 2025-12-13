@@ -25,6 +25,7 @@
                 from
                     album_info ai
                 <trim prefix="where" prefixOverrides="and|or">
+                        and ai.is_deleted = 0
                     <if test="query.albumTitle != null">
                         and ai.album_title like concat('%', #{query.albumTitle}, '%')
                     </if>

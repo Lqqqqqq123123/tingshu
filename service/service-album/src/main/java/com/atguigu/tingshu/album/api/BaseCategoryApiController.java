@@ -1,9 +1,7 @@
 package com.atguigu.tingshu.album.api;
 
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.nacos.shaded.com.google.gson.JsonObject;
 import com.atguigu.tingshu.album.service.BaseCategoryService;
-import com.atguigu.tingshu.album.service.BaseCategoryViewService;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.BaseAttribute;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
@@ -39,6 +37,19 @@ public class BaseCategoryApiController {
     @GetMapping("/category/findAttribute/{category1Id}")
     public Result<List<BaseAttribute>> getBaseAttributeListByCategory1Id(@PathVariable Long category1Id) {
         return Result.ok(baseCategoryService.getBaseAttributeListByCategory1Id(category1Id));
+    }
+
+
+    /**
+     * 根据三级分类ID查询分类视图
+     * @param category3Id
+     * @return
+     */
+    @Operation(summary = "根据三级分类ID查询分类视图")
+    @GetMapping("/category/getCategoryView/{category3Id}")
+    public Result<BaseCategoryView> getCategoryView(@PathVariable Long category3Id){
+        BaseCategoryView baseCategoryView = baseCategoryService.getCategoryView(category3Id);
+        return Result.ok(baseCategoryView);
     }
 
 }

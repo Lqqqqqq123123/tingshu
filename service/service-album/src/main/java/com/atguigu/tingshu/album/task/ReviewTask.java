@@ -1,6 +1,5 @@
 package com.atguigu.tingshu.album.task;
 
-import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
@@ -8,11 +7,9 @@ import com.atguigu.tingshu.model.album.TrackInfo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -47,8 +44,10 @@ public class ReviewTask {
 
         List<TrackInfo> updated = list.stream()
                 .map(trackInfo -> {
+                    // todo : 音频内容的审核结果
                     String result = auditService.getReviewTaskResult(trackInfo.getReviewTaskId());
                     if("pass".equals( result))
+                        // todo : 音频信息审核通过审核通过
                         trackInfo.setStatus(SystemConstant.TRACK_STATUS_PASS);
                     else if("block".equals(result))
                         trackInfo.setStatus(SystemConstant.TRACK_STATUS_NO_PASS);

@@ -72,7 +72,7 @@ public class AlbumInfoApiController {
     }
 
 
-    @Login
+    // @Login
     @Operation(summary = "根据id查询专辑")
     @GetMapping("/albumInfo/getAlbumInfo/{id}")
     public Result<AlbumInfo> getAlbumInfo(@PathVariable Long id) {
@@ -121,5 +121,10 @@ public class AlbumInfoApiController {
 
         return Result.ok(list);
     }
+
+
+
+
+
 }
 

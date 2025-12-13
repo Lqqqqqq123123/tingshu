@@ -12,6 +12,9 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * 与专辑索引映射的实体类
+ */
 @Data
 @Document(indexName = "albuminfo")
 @JsonIgnoreProperties(ignoreUnknown = true)//目的：防止json字符串转成实体对象时因未识别字段报错
@@ -42,11 +45,11 @@ public class AlbumInfoIndex implements Serializable {
     private Integer includeTrackCount;
 
     //专辑是否完结：0-否；1-完结
-    @Field(type = FieldType.Long, index = false)
+    @Field(type = FieldType.Long)
     private String isFinished;
 
     //付费类型：免费、vip免费、付费
-    @Field(type = FieldType.Keyword, index = false)
+    @Field(type = FieldType.Keyword)
     private String payType;
 
     @Field(type = FieldType.Date,format = DateFormat.date_time, pattern = "yyyy-MM-dd HH:mm:ss")

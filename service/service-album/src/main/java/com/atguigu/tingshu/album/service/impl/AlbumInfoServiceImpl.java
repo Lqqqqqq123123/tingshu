@@ -1,13 +1,14 @@
 package com.atguigu.tingshu.album.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import com.atguigu.tingshu.album.mapper.AlbumAttributeValueMapper;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
 import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.service.AlbumAttributeValueService;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
+import com.atguigu.tingshu.common.rabbit.constant.MqConst;
+import com.atguigu.tingshu.common.rabbit.service.RabbitService;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.AlbumStat;
@@ -16,7 +17,6 @@ import com.atguigu.tingshu.vo.album.AlbumAttributeValueVo;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.atguigu.tingshu.vo.album.AlbumListVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.atguigu.tingshu.common.constant.SystemConstant.ALBUM_PAY_TYPE_REQUIRE;
@@ -47,6 +46,10 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
     @Autowired
     private AuditService auditService;
+
+    @Autowired
+    private RabbitService rabbitService;
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -100,6 +103,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         if ("pass".equals(suggestion)) {
             po.setStatus(SystemConstant.ALBUM_STATUS_PASS);
             //TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
+            rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_UPPER, po.getId());
         } else if ("review".equals(suggestion)) {
             po.setStatus(SystemConstant.ALBUM_STATUS_REVIEW);
         } else if ("block".equals(suggestion)) {
@@ -142,6 +146,10 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         LambdaQueryWrapper<AlbumStat> wr2 = new LambdaQueryWrapper<>();
         wr2.eq(AlbumStat::getAlbumId, id);
         albumStatMapper.delete(wr2);
+
+
+        // todo : 通知search微服务中的消费者，删除专辑索引
+        rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_LOWER, id);
     }
 
     @Override
@@ -200,6 +208,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         if ("pass".equals(suggestion)) {
             po.setStatus(SystemConstant.ALBUM_STATUS_PASS);
             //TODO 发送MQ消息 通知 搜索服务 将专辑存入ES引库
+            rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_UPPER, po.getId());
         } else if ("review".equals(suggestion)) {
             po.setStatus(SystemConstant.ALBUM_STATUS_REVIEW);
         } else if ("block".equals(suggestion)) {
