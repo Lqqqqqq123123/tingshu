@@ -3,13 +3,18 @@ package com.atguigu.tingshu.search.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.RandomUtil;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.LongTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.alibaba.fastjson.JSON;
 import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.model.search.AttributeValueIndex;
@@ -29,9 +34,13 @@ import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -155,9 +164,6 @@ public class SearchServiceImpl implements SearchService {
         }
 
     }
-
-
-
 
 
 
@@ -313,6 +319,7 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
+    @SneakyThrows
     public AlbumSearchResponseVo parseResponse(SearchResponse<AlbumInfoIndex> resp, AlbumIndexQuery albumIndexQuery) {
         AlbumSearchResponseVo newResp = new AlbumSearchResponseVo();
         // 1. 分页参数的设置
@@ -372,5 +379,90 @@ public class SearchServiceImpl implements SearchService {
                 .toList();
         newResp.setList(list);
         return newResp;
+    }
+
+    /**
+     * 查询1级分类下置顶3级分类热度TOP6专辑
+     * @param category1Id
+     * @return [{"baseCategory3":{三级分类对象},list:[专辑列表]},,{其他6个置顶分类热门专辑Map}]
+     */
+    @Override
+    public List<Map<String, Object>> channel(Long category1Id) throws IOException {
+        // 1. 远程调用专辑服务， 获取1级分类下所有3级分类
+        List<BaseCategory3> data = albumFeignClient.findTopBaseCategory3(category1Id).getData();
+        // 1.1 之后要通过 3级分类ID 直接拿到三级分类，所以转为map
+        Map<Long, BaseCategory3> map = data.stream().collect(Collectors.toMap(BaseCategory3::getId, t -> t));
+
+        // 2. 根据3级分类去从es中检索获得热门的专辑，只要6条数据
+        // 2.1 构建 DSL 语句
+        SearchRequest.Builder builder = new SearchRequest.Builder();
+        builder.index("albuminfo").size(0);  // 我们只要分组后的结果，不需要 hits
+
+        // 2.2 多值等值查询的写法
+        List<FieldValue> list = data.stream().map(
+                t -> FieldValue.of(t.getId())
+        ).toList();
+
+        builder.query(
+                q-> q.terms(t->t.field("category3Id").terms(
+                        e->e.value(list)
+                )));
+
+
+        // 2.3 聚合查询
+        builder.aggregations("c3_agg", a -> a.terms(
+                t->t.field("category3Id").size(7))
+                .aggregations("top6", a1 -> a1.topHits(
+                        t -> t.size(6).sort(
+                                s -> s.field( v -> v.field("hotScore").order(SortOrder.Desc))
+                        )
+                ))
+        );
+        System.err.println("当前DSL如下");
+        SearchRequest request = builder.build();
+        System.out.println(request);
+
+        // 3. 执行查询
+        SearchResponse<AlbumInfoIndex> resp = elasticsearchClient.search(request, AlbumInfoIndex.class);
+
+
+        // 4. 解析结果
+
+        Map<String, Aggregate> aggregations = resp.aggregations();
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        if(!CollectionUtils.isEmpty(aggregations)){
+            Aggregate c3Agg = aggregations.get("c3_agg");
+            // 3.1 将组合的结果转为 LongtermsAggregate
+            List<LongTermsBucket> buckets = c3Agg.lterms().buckets().array();
+
+            for (LongTermsBucket bucket : buckets) {
+                // 新建一个返回 map 对象
+                Map<String, Object> vo = new HashMap<>();
+                vo.put("baseCategory3", map.get(bucket.key()));
+
+                // 当前三级分类下的top6
+                List<AlbumInfoIndex> top6 = bucket.aggregations().get("top6").topHits().hits().hits()
+                        .stream()
+                        .map(t -> {
+                            // 不对：错误原因：co.elastic.clients.json.JsonData（Elasticsearch 官方客户端特有类型）→ ❌ 不能直接被 Jackson 处理！
+                            // return objectMapper.convertValue(t.source().toString(), AlbumInfoIndex.class); //
+//                            Map<String,  Object> tmap = t.source().to(Map.class);
+//                            return objectMapper.convertValue(tmap, AlbumInfoIndex.class);
+
+                            String json = t.source().toString();
+                            AlbumInfoIndex albumInfoIndex =  JSON.parseObject(json, AlbumInfoIndex.class);
+                            return albumInfoIndex;
+                        })
+                        .toList();
+
+
+                vo.put("list", top6);
+                result.add(vo);
+            }
+        }
+
+
+        return result;
     }
 }

@@ -6,13 +6,16 @@ import com.atguigu.tingshu.album.mapper.*;
 import com.atguigu.tingshu.album.service.BaseCategoryService;
 import com.atguigu.tingshu.model.album.BaseAttribute;
 import com.atguigu.tingshu.model.album.BaseCategory1;
+import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -113,5 +116,85 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
         LambdaQueryWrapper<BaseCategoryView> wr = new LambdaQueryWrapper<>();
         wr.eq(BaseCategoryView::getCategory3Id, category3Id);
         return baseCategoryViewMapper.selectOne(wr);
+    }
+
+    /**
+     * // todo:之后把数据存放到Redis中，如果缓存中有，则从缓存中获取，如果没有，则从数据库中查询
+     * 根据一级分类Id查询置顶7个三级分类列表
+     * @param category1Id
+     * @return
+     */
+    @Override
+    @Transactional
+    public List<BaseCategory3> findTopBaseCategory3(Long category1Id) {
+        LambdaQueryWrapper<BaseCategoryView> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BaseCategoryView::getCategory1Id, category1Id);
+
+
+        // 按照一级分类id查询三级分类id
+        List<Long> list = baseCategoryViewMapper.selectList(wrapper)
+                .stream()
+                .map(BaseCategoryView::getCategory3Id)
+                .toList();
+
+        // 按照id批量查询三级分类
+        // 过滤 is_top = 1，然后截取7个
+        List<BaseCategory3> baseCategory3s = baseCategory3Mapper.selectBatchIds(list)
+                .stream()
+                .filter(item -> item.getIsTop() == 1)
+                .limit(7)
+                .sorted((t1, t2) ->{
+                    return t1.getOrderNum() - t2.getOrderNum(); // 升序
+                })
+                .toList();
+
+        return baseCategory3s;
+
+
+    }
+
+    /**
+     * // todo:之后把数据存放到Redis中，如果缓存中有，则从缓存中获取，如果没有，则从数据库中查询
+     * 查询1级分类下包含所有二级以及三级分类
+     * @param category1Id
+     * @return
+     */
+    @Override
+    public JSONObject getBaseCategoryListByCategory1Id(Long category1Id) {
+
+        // 1. 查询1级分类下的所有二级分类
+        List<BaseCategoryView> list = baseCategoryViewMapper.selectList(
+                new LambdaQueryWrapper<BaseCategoryView>()
+                        .eq(BaseCategoryView::getCategory1Id, category1Id)
+        );
+
+        // 2. 按照二级分类id分组，得到的就是该二级分类下的三级分类
+        Map<Long, List<BaseCategoryView>> children = list.stream()
+                .collect(Collectors.groupingBy(BaseCategoryView::getCategory2Id));
+
+        // 3. 先封装一个一个分类对象
+        JSONObject result = new JSONObject();
+        result.put("categoryId", category1Id);
+        result.put("categoryName", list.get(0).getCategory1Name());
+        List<JSONObject> category2List = new ArrayList<>();
+
+        // 遍历集合，封装二级分类对象
+        for(Map.Entry<Long, List<BaseCategoryView>> entry : children.entrySet()){
+            JSONObject category2 = new JSONObject();
+            category2.put("categoryId", entry.getKey());
+            category2.put("categoryName", entry.getValue().get(0).getCategory2Name());
+            List<Map<Long, String>> category3 = new ArrayList<>();
+            for(BaseCategoryView item : entry.getValue()) {
+                Map category3Item = new HashMap<>();
+                category3Item.put("categoryId", item.getCategory3Id());
+                category3Item.put("categoryName", item.getCategory3Name());
+                category3.add(category3Item);
+            }
+            category2.put("categoryChild", category3);
+            category2List.add(category2);
+        }
+
+        result.put("categoryChild", category2List);
+        return result;
     }
 }

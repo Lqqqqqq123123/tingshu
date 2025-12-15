@@ -9,6 +9,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
 @Tag(name = "搜索专辑管理")
 @RestController
 @RequestMapping("api/search")
@@ -53,5 +57,19 @@ public class SearchApiController {
         AlbumSearchResponseVo vo  = searchService.search(albumIndexQuery);
         return Result.ok(vo);
     }
+
+
+    /**
+     * 查询1级分类下置顶3级分类热度TOP6专辑
+     * @param category1Id
+     * @return [{"baseCategory3":{三级分类对象},list:[专辑列表]},,{其他6个置顶分类热门专辑Map}]
+     */
+    @Operation(summary = "查询1级分类下置顶3级分类热度TOP6专辑")
+    @GetMapping("/albumInfo/channel/{category1Id}")
+    public Result<List<Map<String, Object>>> channel(@PathVariable Long category1Id) throws IOException {
+        List<Map<String, Object>> list = searchService.channel(category1Id);
+        return Result.ok(list);
+    }
+
 }
 

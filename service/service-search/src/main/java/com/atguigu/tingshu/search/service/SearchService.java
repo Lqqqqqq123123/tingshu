@@ -6,6 +6,10 @@ import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
 public interface SearchService {
 
     /**
@@ -49,4 +53,11 @@ public interface SearchService {
      * @return
      */
     AlbumSearchResponseVo parseResponse(SearchResponse<AlbumInfoIndex> resp, AlbumIndexQuery albumIndexQuery);
+
+    /**
+     * 查询1级分类下置顶3级分类热度TOP6专辑
+     * @param category1Id
+     * @return [{"baseCategory3":{三级分类对象},list:[专辑列表]},,{其他6个置顶分类热门专辑Map}]
+     */
+    List<Map<String, Object>> channel(Long category1Id) throws IOException;
 }
