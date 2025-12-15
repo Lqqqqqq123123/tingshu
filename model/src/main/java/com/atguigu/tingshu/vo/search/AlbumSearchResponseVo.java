@@ -10,7 +10,7 @@ import java.util.List;
 public class AlbumSearchResponseVo implements Serializable {
 
 
-    //检索出来的商品信息
+    //检索出来的专辑信息
     private List<AlbumInfoIndexVo> list = new ArrayList<>();
 
     private Long total;//总记录数

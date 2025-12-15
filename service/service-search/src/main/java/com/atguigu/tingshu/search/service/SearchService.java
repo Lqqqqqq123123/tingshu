@@ -1,5 +1,11 @@
 package com.atguigu.tingshu.search.service;
 
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.atguigu.tingshu.model.search.AlbumInfoIndex;
+import com.atguigu.tingshu.query.search.AlbumIndexQuery;
+import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
+
 public interface SearchService {
 
     /**
@@ -15,4 +21,32 @@ public interface SearchService {
      * @return
      */
     void lowerAlbum(Long albumId);
+
+
+    /**
+     * 批量上架专辑(不严谨版本，也就是直接遍历  1-maxid)
+     */
+    public void batchUpperAlbum();
+
+    /**
+     * 站内搜索
+     * @param albumIndexQuery
+     * @return
+     */
+    AlbumSearchResponseVo search(AlbumIndexQuery albumIndexQuery);
+
+    /**
+     * 构建DSL
+     * @param albumIndexQuery
+     * @return
+     */
+    SearchRequest buildDSL(AlbumIndexQuery albumIndexQuery);
+
+    /**
+     * 解析响应结果
+     * @param resp
+     * @param albumIndexQuery
+     * @return
+     */
+    AlbumSearchResponseVo parseResponse(SearchResponse<AlbumInfoIndex> resp, AlbumIndexQuery albumIndexQuery);
 }

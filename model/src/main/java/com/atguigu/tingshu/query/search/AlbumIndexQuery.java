@@ -26,7 +26,7 @@ public class AlbumIndexQuery {
 
 	// order=1:asc  排序规则   0:asc
 	@Schema(description = "排序（综合排序[1:desc] 播放量[2:desc] 发布时间[3:desc]；asc:升序 desc:降序）")
-	private String order = "";// 1：综合排序 2：播放量 3：最近更新
+	private String order = "";// 1：综合排序（hot score) 2：播放量 3：最近更新
 
 	private Integer pageNo = 1;//分页信息
 	private Integer pageSize = 10;

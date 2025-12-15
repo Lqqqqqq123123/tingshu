@@ -21,4 +21,9 @@ public class UserFeignClientTest {
         Result<UserInfoVo> result = userFeignClient.getUserInfoVo(1L);
         System.out.println(result);
     }
+
+    @Test
+    public void test01(){
+        System.out.println(Math.ceil(1.1));
+    }
 }
