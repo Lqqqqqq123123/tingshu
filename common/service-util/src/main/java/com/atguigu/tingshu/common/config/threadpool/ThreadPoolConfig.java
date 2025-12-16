@@ -14,21 +14,21 @@ import java.util.concurrent.*;
 public class ThreadPoolConfig {
 
     // java juc 提供的线程池
-    @Bean
-    public ThreadPoolExecutor threadPoolExecutor(){
-        int corePoolSize = Runtime.getRuntime().availableProcessors();
-        int threadCount = corePoolSize * 2;
-
-        return new ThreadPoolExecutor(
-                corePoolSize,
-                threadCount,
-                0,
-                TimeUnit.SECONDS ,
-                new ArrayBlockingQueue<>(200),
-                Executors.defaultThreadFactory(),
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
-    }
+//    @Bean
+//    public ThreadPoolExecutor threadPoolExecutor(){
+//        int corePoolSize = Runtime.getRuntime().availableProcessors();
+//        int threadCount = corePoolSize * 2;
+//
+//        return new ThreadPoolExecutor(
+//                corePoolSize,
+//                threadCount,
+//                0,
+//                TimeUnit.SECONDS ,
+//                new ArrayBlockingQueue<>(200),
+//                Executors.defaultThreadFactory(),
+//                new ThreadPoolExecutor.CallerRunsPolicy()
+//        );
+//    }
 
     /**
      * 基于Spring提供线程池Class-threadPoolTaskExecutor 功能更强

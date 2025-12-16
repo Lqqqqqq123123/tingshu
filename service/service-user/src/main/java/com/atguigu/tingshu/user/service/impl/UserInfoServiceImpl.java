@@ -3,6 +3,7 @@ package com.atguigu.tingshu.user.service.impl;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.IdUtil;
@@ -11,8 +12,12 @@ import com.atguigu.tingshu.common.rabbit.constant.MqConst;
 import com.atguigu.tingshu.common.rabbit.service.RabbitService;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.user.UserInfo;
+import com.atguigu.tingshu.model.user.UserPaidAlbum;
+import com.atguigu.tingshu.model.user.UserPaidTrack;
 import com.atguigu.tingshu.user.mapper.UserInfoMapper;
 import com.atguigu.tingshu.user.service.UserInfoService;
+import com.atguigu.tingshu.user.service.UserPaidAlbumService;
+import com.atguigu.tingshu.user.service.UserPaidTrackService;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -22,9 +27,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,6 +47,19 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     @Autowired
     private RabbitService rabbitService;
+
+    @Autowired
+    private UserPaidAlbumService userPaidAlbumService;
+
+    @Autowired
+    private UserPaidTrackService userPaidTrackService;
+
+    /**
+     * 实现微信登录
+     * @param code
+     * @return map: {token:token}
+     * @throws WxErrorException
+     */
     @Override
     public Map<String, String> wxLogin(String code) throws WxErrorException {
 
@@ -93,7 +111,6 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     /**
      * 获取当前登录用户基本信息
-     *
      * @return Vo
      */
     @Override
@@ -115,5 +132,53 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         userInfo.setId(userid);
         userInfoMapper.updateById(userInfo);
 
+    }
+
+    /**
+     * 提交需要检查购买状态声音ID列表，响应每个声音购买状态
+     * @param userId
+     * @param albumId
+     * @param ids 待检查购买状态声音ID列表（已经过滤了免费试听声音id）
+     * @return [声音ID，支付状态] 0 未购买 1 已购买
+     */
+    @Override
+    public Map<Long, Integer> userIsPaidTrack(Long userId, Long albumId, List<Long> ids) {
+
+        // 1 根据专辑id + userid 直接去查当前用户是否购买了专辑
+
+        // 1.1 包装查询条件
+        LambdaQueryWrapper<UserPaidAlbum> wr1 = new LambdaQueryWrapper<>();
+        wr1.eq(UserPaidAlbum::getUserId, userId);
+        wr1.eq(UserPaidAlbum::getAlbumId, albumId);
+
+        // 1.2 查询，获取行数
+        long count = userPaidAlbumService.count(wr1);
+
+        // 1.3 如果行数大于0，则说明当前用户已经购买了专辑，那么我们直接将这些待检查的声音的支付状态设置为已购买，然后直接返回
+        if(count > 0){
+            return ids.stream().collect(Collectors.toMap(k -> k, v -> 1));
+        }
+
+
+        // 2 否则，我们根据声音ID列表，去数据库中查询这些声音的支付状态（也就是根据 userId + albumId 去查询当前用户购买了那些声音）
+        LambdaQueryWrapper<UserPaidTrack> wr2 = new LambdaQueryWrapper<>();
+        wr2.eq(UserPaidTrack::getUserId, userId);
+        wr2.eq(UserPaidTrack::getAlbumId, albumId);
+
+        List<UserPaidTrack> list = userPaidTrackService.list(wr2);
+
+        // 3.1 如果不存在购买的声音，那么我们将这些声音的支付状态设置为0，然后直接返回
+        if(CollectionUtil.isEmpty(list)){
+            return ids.stream().collect(Collectors.toMap(k -> k, v -> 0));
+        }
+
+        // 3.2 否则，将2查出来的用户购买了的声音的支付状态设置为1， 其余为0，然后响应
+        // 3.2.1 将查询来的购买声音的id转为set
+        Set<Long> buy_set = list.stream()
+                .map(UserPaidTrack::getTrackId)
+                .collect(Collectors.toSet());
+        return ids.stream().collect(
+                Collectors.toMap(k -> k, v -> buy_set.contains(v) ? 1 : 0)
+        );
     }
 }

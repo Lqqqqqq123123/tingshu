@@ -12,11 +12,15 @@ import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.model.album.TrackStat;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
+import com.atguigu.tingshu.user.client.UserFeignClient;
+import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.album.TrackInfoVo;
 import com.atguigu.tingshu.vo.album.TrackListVo;
 import com.atguigu.tingshu.vo.album.TrackMediaInfoVo;
+import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.qcloud.vod.VodUploadClient;
@@ -27,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.Date;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -43,9 +49,10 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
     private VodUploadClient client;
     @Autowired
     private VodService vodService;
-
     @Autowired
     private AuditService auditService;
+    @Autowired
+    private UserFeignClient userFeignClient;
 
 
 
@@ -257,6 +264,118 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
 
         //6.删除点播平台音频文件
         vodService.deleteMedia(trackInfo.getMediaFileId());
+
+    }
+
+
+
+    /**
+     * 需求：用户未登录，可以给用户展示声音列表；用户已登录，可以给用户展示声音列表，并动态渲染付费标识
+     * 分页查询专辑下声音列表（动态渲染付费标识）
+     * @param pageInfo 分页参数
+     * @param albumId 专辑id
+     * @param userId 用户id
+     * @return 分页数据
+     */
+    @Override
+    public IPage<AlbumTrackListVo> findAlbumTrackPage(IPage<AlbumTrackListVo> pageInfo, Long albumId, Long userId) {
+
+        // 1. 分页查询专辑下声音列表
+        pageInfo = trackInfoMapper.findAlbumTrackPage(pageInfo, albumId);
+
+        // 2. todo:根据用户是否登录、用户是否是vip，用户是否付费动态渲染付费标识
+        // 2.1 先去拿到专辑的付费类型以及试听集数
+        AlbumInfo albumInfo = albumInfoMapper.selectById(albumId);
+        // 专辑付费类型： 0101-免费 0102-vip付费 0103-付费
+        String payType = albumInfo.getPayType();
+        Integer tracksForFree = albumInfo.getTracksForFree();
+
+        // 如果专辑是免费的，就不用走后面的逻辑了，直接返回
+        if(payType.equals(SystemConstant.ALBUM_PAY_TYPE_FREE)) return pageInfo;
+
+        // 2.2 未登录情况
+        if(userId == null){
+            if(payType.equals(SystemConstant.ALBUM_PAY_TYPE_VIPFREE) || payType.equals(SystemConstant.ALBUM_PAY_TYPE_REQUIRE)) {
+                // 2.2.1 遍历当前页声音，然后过滤掉免费试听的声音，然后将其他的声音的付费标识设置为 true
+                pageInfo.getRecords()
+                        .stream()
+                        .filter(t -> t.getOrderNum() > tracksForFree)
+                        .forEach(t -> t.setIsShowPaidMark(true));
+            }
+        }
+        // 2.3 登录情况
+        else{
+            // 2.3.1 获取当前用户信息
+            UserInfoVo userInfoVo = userFeignClient.getUserInfoVo(userId).getData();
+            if(userInfoVo ==  null){
+                log.info("远程调用获取用户信息失败");
+                throw new RuntimeException("远程调用获取用户信息失败");
+            }
+
+            // 用户是否为VIP会员 0:普通用户  1:VIP会员
+            Integer isVip = userInfoVo.getIsVip();
+            Date expireTime = userInfoVo.getVipExpireTime();
+
+            // todo:这里的代码重复，可以优化，但我懒得写了，饿了。
+            // 2.3.2 如果当前用户不是 vip 或者 vip 会员已过期并且当前专辑不是免费的（免费的情况已经在上面处理过了，所以能到这里，肯定不是免费的）
+            if(isVip == 0 || (isVip == 1 && expireTime.before(new Date()))){
+                // todo：先去写验证当前页声音是否购买的接口
+                // 1. 调用 user 服务接口 userIsPaidTrack 去检查当前声音列表哪些购买了，哪些没购买
+                Map<Long, Integer> checkResult = userFeignClient.userIsPaidTrack(
+                        userId,
+                        albumId,
+                        pageInfo.getRecords()
+                                .stream()
+                                .filter(t -> t.getOrderNum() > tracksForFree) // 过滤掉免费试听声音
+                                .map(t -> t.getTrackId())
+                                .toList()).getData();
+
+                //2.  根据检查的结果，设置付费标识
+                pageInfo.getRecords().forEach(
+                        t ->{
+                            // 3. 如果当前声音没有购买，则设置付费标识为 true
+                            Integer tt = checkResult.get(t.getTrackId());
+                            if(tt != null && tt == 0){
+                                t.setIsShowPaidMark(true);
+                            }
+                        }
+                );
+
+                return pageInfo;
+            }
+
+
+            // 2.3.3 当前用户是 vip
+            else{
+                // 1. 如果当前作品付费类型为免费或者vip免费，则不需要处理，也就是只处理 vip 需要付费的专辑
+                if(payType.equals(SystemConstant.ALBUM_PAY_TYPE_REQUIRE)){
+                    // 2. 调用 user 服务接口 userIsPaidTrack 去检查当前声音列表哪些购买了，哪些没购买
+                    Map<Long, Integer> checkResult = userFeignClient.userIsPaidTrack(
+                            userId,
+                            albumId,
+                            pageInfo.getRecords()
+                                    .stream()
+                                    .filter(t -> t.getOrderNum() > tracksForFree) // 过滤掉免费试听声音
+                                    .map(t -> t.getTrackId())
+                                    .toList()).getData();
+
+                    pageInfo.getRecords().forEach(
+                            t ->{
+                                // 3. 如果当前声音没有购买，则设置付费标识为 true
+                                Integer tt = checkResult.get(t.getTrackId());
+                                if(tt != null && tt == 0){
+                                    t.setIsShowPaidMark(true);
+                                }
+                            }
+                    );
+
+                    return pageInfo;
+                }
+            }
+
+        }
+
+        return pageInfo;
 
     }
 }

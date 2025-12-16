@@ -4,10 +4,9 @@ import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.query.album.AlbumInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumInfoVo;
 import com.atguigu.tingshu.vo.album.AlbumListVo;
+import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
-
-import java.util.List;
 
 public interface AlbumInfoService extends IService<AlbumInfo> {
 
@@ -54,4 +53,12 @@ public interface AlbumInfoService extends IService<AlbumInfo> {
      * @param vo
      */
     void updateAlbumInfo(Long id, AlbumInfoVo vo);
+
+
+    /**
+     * 根据专辑ID查询专辑统计信息
+     * @param albumId
+     * @return
+     */
+    AlbumStatVo getAlbumStatVo(Long albumId);
 }

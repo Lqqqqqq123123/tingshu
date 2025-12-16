@@ -5,6 +5,7 @@ import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.extension.service.IService;
 import me.chanjar.weixin.common.error.WxErrorException;
 
+import java.util.List;
 import java.util.Map;
 
 public interface UserInfoService extends IService<UserInfo> {
@@ -31,4 +32,13 @@ public interface UserInfoService extends IService<UserInfo> {
      * @return
      */
     void updateUser(UserInfoVo userInfoVo);
+
+    /**
+     * 提交需要检查购买状态声音ID列表，响应每个声音购买状态
+     * @param userId
+     * @param albumId
+     * @param ids 待检查购买状态声音ID列表
+     * @return
+     */
+    Map<Long, Integer> userIsPaidTrack(Long userId, Long albumId, List<Long> ids);
 }

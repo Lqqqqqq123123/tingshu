@@ -13,7 +13,6 @@ import org.aspectj.lang.annotation.Aspect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -53,10 +52,11 @@ public class LoginAspect {
 
         // 1.3 获取用户令牌
         String token = request.getHeader("token");
-        if(!StringUtils.hasText(token)){
-            log.error("用户未登录");
-            throw new BusinessException(ResultCodeEnum.LOGIN_AUTH);
-        }
+        // 因为有些接口不登陆也能访问，所以这里不能因为令牌不存在就抛异常
+//        if(!StringUtils.hasText(token)){
+//            log.error("用户未登录");
+//            throw new BusinessException(ResultCodeEnum.LOGIN_AUTH);
+//        }
 
         // 2. 查询用户信息
         // 2.1 构建查询 key

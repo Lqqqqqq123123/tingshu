@@ -7,8 +7,10 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
+import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.album.TrackInfoVo;
 import com.atguigu.tingshu.vo.album.TrackListVo;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -123,5 +125,32 @@ public class TrackInfoApiController {
         return Result.ok();
     }
 
+
+    /**
+     * 需求：用户未登录，可以给用户展示声音列表；用户已登录，可以给用户展示声音列表，并动态渲染付费标识
+     * 分页查询专辑下声音列表（动态渲染付费标识）
+     * @param albumId
+     * @param page
+     * @param limit
+     * @return
+     */
+    @Login(required = false)
+    @Operation(summary = "分页查询专辑下声音列表（动态渲染付费标识）")
+    @GetMapping("/trackInfo/findAlbumTrackPage/{albumId}/{page}/{limit}")
+    public Result<IPage<AlbumTrackListVo>> findAlbumTrackPage(
+            @PathVariable Long albumId,
+            @PathVariable Long page,
+            @PathVariable Long limit) {
+        //1.尝试获取用户ID
+        Long userId = AuthContextHolder.getUserId();
+        //2.构建分页对象：封装当前页码、每页记录数
+        IPage<AlbumTrackListVo> pageInfo = new Page<>(page, limit);
+
+        //3.调用业务逻辑层->持久层：封装：总记录数，总页数，当前页数据
+        pageInfo = trackInfoService.findAlbumTrackPage(pageInfo, albumId, userId);
+
+        //4.响应分页对象
+        return Result.ok(pageInfo);
+    }
 }
 
