@@ -4,7 +4,7 @@
     <contextName>logback</contextName>
 
     <!-- 日志的输出目录 -->
-    <property name="log.path" value="D://work//tingshu_work//logs" />
+    <property name="log.path" value="E:\Code_Space\2.Java\projects\book\log" />
 
     <!--控制台日志格式：彩色日志-->
     <!-- magenta:洋红 -->
@@ -44,12 +44,12 @@
         </encoder>
     </appender>
 
-    <!-- logstash日志 -->
-<!--    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">-->
-<!--        &lt;!&ndash; logstash ip和暴露的端口，logback就是通过这个地址把日志发送给logstash &ndash;&gt;-->
-<!--        <destination>139.198.127.41:8044</destination>-->
-<!--        <encoder charset="UTF-8" class="net.logstash.logback.encoder.LogstashEncoder" />-->
-<!--    </appender>-->
+     logstash日志
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <!-- logstash ip和暴露的端口，logback就是通过这个地址把日志发送给logstash -->
+        <destination>152.136.97.27:5044</destination>
+        <encoder charset="UTF-8" class="net.logstash.logback.encoder.LogstashEncoder" />
+    </appender>
 
     <!-- 开发环境 -->
     <springProfile name="dev">
@@ -59,6 +59,7 @@
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
 <!--            <appender-ref ref="FILE" />-->
+            <appender-ref ref="LOGSTASH" />
         </root>
     </springProfile>
 

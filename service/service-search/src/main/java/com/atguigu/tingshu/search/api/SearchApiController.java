@@ -71,5 +71,17 @@ public class SearchApiController {
         return Result.ok(list);
     }
 
+
+    /**
+     * 根据用户已录入字符查询提词索引库进行自动补全关键字
+     * @param keyword
+     * @return
+     */
+    @Operation(summary = "根据用户已录入字符查询提词索引库进行自动补全关键字")
+    @GetMapping("/albumInfo/completeSuggest/{keyword}")
+    public Result<List<String>> completeSuggest(@PathVariable String keyword){
+        List<String> list = searchService.completeSuggest(keyword);
+        return Result.ok(list);
+    }
 }
 

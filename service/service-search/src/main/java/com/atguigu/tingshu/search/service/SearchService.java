@@ -60,4 +60,17 @@ public interface SearchService {
      * @return [{"baseCategory3":{三级分类对象},list:[专辑列表]},,{其他6个置顶分类热门专辑Map}]
      */
     List<Map<String, Object>> channel(Long category1Id) throws IOException;
+
+    /**
+     * 保存suggest索引
+     * @param po
+     */
+    void saveSuggestIndex(AlbumInfoIndex po);
+
+    /**
+     * 根据用户已录入字符查询提词索引库进行自动补全关键字
+     * @param keyword
+     * @return
+     */
+    List<String> completeSuggest(String keyword);
 }

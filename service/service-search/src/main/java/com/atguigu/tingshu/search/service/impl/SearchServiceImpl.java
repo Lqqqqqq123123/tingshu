@@ -2,6 +2,7 @@ package com.atguigu.tingshu.search.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.extra.pinyin.PinyinUtil;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
@@ -10,6 +11,9 @@ import co.elastic.clients.elasticsearch._types.aggregations.LongTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
+import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.alibaba.fastjson.JSON;
 import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
@@ -18,8 +22,10 @@ import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.model.search.AttributeValueIndex;
+import com.atguigu.tingshu.model.search.SuggestIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.search.repository.AlbumInfoRepository;
+import com.atguigu.tingshu.search.repository.SuggestionRepository;
 import com.atguigu.tingshu.search.service.SearchService;
 import com.atguigu.tingshu.user.client.UserFeignClient;
 import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
@@ -29,16 +35,15 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.elasticsearch.core.suggest.Completion;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -50,6 +55,8 @@ public class SearchServiceImpl implements SearchService {
 
     @Autowired
     private AlbumInfoRepository albumInfoRepository;
+    @Autowired
+    private SuggestionRepository suggestionRepository;
 
     @Autowired
     private AlbumFeignClient albumFeignClient;
@@ -66,6 +73,10 @@ public class SearchServiceImpl implements SearchService {
             "2", "playStatNum",
             "3", "createTime"
     );
+    private final static String ALBUM_INDEX_NAME = "albuminfo";
+    private static final String SUGGEST_INDEX_NAME = "suggestinfo";
+    @Autowired
+    private WebClient.Builder builder;
 
     /**
      * 将指定专辑上架到索引库
@@ -79,11 +90,7 @@ public class SearchServiceImpl implements SearchService {
         // 1.1 根据专辑ID查询专辑信息
         AlbumInfo albumInfo = albumFeignClient.getAlbumInfo(albumId).getData();
 
-//        if(albumInfo == null || albumInfo.getCode() != 200){
-//            throw new RuntimeException("upperAlbum : 查询专辑信息失败");
-//        }
         Assert.notNull(albumInfo, "upperAlbum : 专辑信息不存在");
-
         AlbumInfoIndex po = BeanUtil.copyProperties(albumInfo, AlbumInfoIndex.class);
 
         // 手动处理专辑属性值集合
@@ -128,8 +135,13 @@ public class SearchServiceImpl implements SearchService {
         // 计算规则：播放数 * 0.1 + 订阅数 * 0.2 + 购买数 * 0.3 + 评论数 * 0.4
         Double hotScore = po.getPlayStatNum() * 0.1 + po.getSubscribeStatNum() * 0.2 + po.getBuyStatNum() * 0.3 + po.getCommentStatNum() * 0.4;
         po.setHotScore(hotScore);
+
+
         // 2. 保存索引
         albumInfoRepository.save(po);
+
+        // 3. 保存专辑标题到提示词索引库
+        this.saveSuggestIndex(po);
 
     }
 
@@ -142,7 +154,10 @@ public class SearchServiceImpl implements SearchService {
      */
     @Override
     public void lowerAlbum(Long albumId) {
+        // 1. 删除专辑文档
         albumInfoRepository.deleteById(albumId);
+        // 2. 删除专辑对应提示词文档
+        suggestionRepository.deleteById(albumId.toString());
     }
 
 
@@ -206,12 +221,12 @@ public class SearchServiceImpl implements SearchService {
 
     }
 
-    private final static String INDEX_NAME = "albuminfo";
+
     @Override
     public SearchRequest buildDSL(AlbumIndexQuery albumIndexQuery) {
         // 1. 创建 dsl 的构建者以及 bool 查询的构造者
         SearchRequest.Builder builder = new SearchRequest.Builder();
-        builder.index(INDEX_NAME);
+        builder.index(ALBUM_INDEX_NAME);
         // 创建bool查询条件：用于封装所有查询条件
         BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
 
@@ -418,8 +433,8 @@ public class SearchServiceImpl implements SearchService {
                         )
                 ))
         );
-        System.err.println("当前DSL如下");
         SearchRequest request = builder.build();
+        System.err.println("当前DSL如下");
         System.out.println(request);
 
         // 3. 执行查询
@@ -464,5 +479,152 @@ public class SearchServiceImpl implements SearchService {
 
 
         return result;
+    }
+
+    /**
+     * 保存建议索引
+     * @param po
+     */
+    @Override
+    public void saveSuggestIndex(AlbumInfoIndex albuminfo) {
+
+        SuggestIndex po = new SuggestIndex();
+        po.setId(albuminfo.getId().toString());
+        String title = albuminfo.getAlbumTitle();
+
+        // 三个补全字段：汉字、拼音、首字母
+        po.setKeyword(new Completion(new String[]{title}));
+
+        // 拼音
+        String pinyin = PinyinUtil.getPinyin(title, ""); // 参数：字符串，分隔符
+
+        // 首字母
+        String letters = PinyinUtil.getFirstLetter(title, "");
+
+        // 赋值
+        po.setTitle(title);
+        po.setKeywordPinyin(new Completion(new String[]{pinyin}));
+        po.setKeywordSequence(new Completion(new String[]{letters}));
+        suggestionRepository.save(po);
+
+    }
+
+
+    /**
+     * 根据用户已录入字符查询提词索引库进行自动补全关键字
+     * @param keyword
+     * @return
+     */
+    @Override
+    @SneakyThrows
+    public List<String> completeSuggest(String keyword) {
+        // 1. 创建 DSL
+        SearchRequest.Builder builder = new SearchRequest.Builder();
+        builder.index(SUGGEST_INDEX_NAME);
+
+        /**
+         * 在 Java 的 Elasticsearch Java API Client（8.x+） 中，builder.suggest(...) 方法每次调用都会覆盖之前设置的 suggester，
+         * 而不是追加。也就是说，你连续调用了三次 builder.suggest(...)，但最终只有最后一次调用生效，所以 DSL 里只看到一个 suggester。
+         */
+//        builder.suggest(
+//                s -> s.suggesters(
+//                        "KeyWordPingYingSuggst", // 建议器名称
+//                        f -> f.prefix(keyword).completion(
+//                                c -> c.field("keywordPinyin").skipDuplicates(true)
+//                        )
+//                )
+//        );
+//
+//        builder.suggest(
+//                s -> s.suggesters(
+//                        "KeyWordSuggst", // 建议器名称
+//                        f -> f.prefix(keyword).completion(
+//                                c -> c.field("keyword").skipDuplicates(true)
+//                        )
+//                )
+//        );
+//        builder.suggest(
+//                s -> s.suggesters(
+//                        "KeyWordLettersSuggst", // 建议器名称
+//                        f -> f.prefix(keyword).completion(
+//                                c -> c.field("keywordSequence").skipDuplicates(true)
+//                        )
+//                )
+//        );
+
+        //  构建包含多个 FieldSuggester 的 Map
+        Map<String, FieldSuggester> suggesters = new HashMap<>();
+        FieldSuggester fieldSuggest1 = FieldSuggester.of(f -> f.prefix(keyword).completion(
+                c -> c.field("keywordPinyin").skipDuplicates(true)
+        ));
+        FieldSuggester fieldSuggest2 = FieldSuggester.of(f -> f.prefix(keyword).completion(
+                c -> c.field("keyword").skipDuplicates(true)
+        ));
+        FieldSuggester fieldSuggest3 = FieldSuggester.of(f -> f.prefix(keyword).completion(
+                c -> c.field("keywordSequence").skipDuplicates(true)
+        ));
+        suggesters.put("KeyWordPingYingSuggst", fieldSuggest1);
+        suggesters.put("KeyWordSuggst", fieldSuggest2);
+        suggesters.put("KeyWordLettersSuggst", fieldSuggest3);
+
+        builder.suggest(s -> s.suggesters(suggesters));
+        SearchRequest request = builder.build();
+
+        System.err.println("DSL如下：");
+        System.out.println(request);
+
+        // 2. 执行查询
+        SearchResponse<SuggestIndex> resp = elasticsearchClient.search(request, SuggestIndex.class);
+
+        // 3. 解析结果
+        HashSet<String> result = new HashSet<>();
+        // 3.1 找到哪个提示器的options 不为空
+        resp.suggest().forEach((k, v) -> {
+            // 获取提示结果
+            List<CompletionSuggestOption<SuggestIndex>> list = v.get(0).completion().options();
+            if(!CollectionUtils.isEmpty(list)){
+                list.forEach(t -> {
+                    result.add(t.source().getTitle());
+                });
+            }
+
+        });
+
+
+
+        // 4 如果补全的结果数量小于10个，则尝试用全文检索补齐到 10 个
+        if(result.size() < 10){
+            // 去根据keyword对应的汉字进行全文检索
+            //4.1 创建DSL
+            SearchRequest.Builder builder1 = new SearchRequest.Builder();
+            builder1.index(ALBUM_INDEX_NAME);
+            builder1.query(q -> q.match(m -> m.field("albumTitle").query(keyword)));
+            builder1.source(s -> s.filter(
+                    f -> f.includes("albumTitle")
+            ));
+
+            SearchRequest request1 = builder1.build();
+            System.out.println(request1);
+
+            SearchResponse<AlbumInfoIndex> resp1 = elasticsearchClient.search(request1, AlbumInfoIndex.class);
+
+            List<Hit<AlbumInfoIndex>> hits = resp1.hits().hits();
+
+            if(!CollectionUtils.isEmpty(hits)){
+                for (Hit<AlbumInfoIndex> hit : hits) {
+                    result.add(hit.source().getAlbumTitle());
+                    if(result.size() >= 10){
+                        break;
+                    }
+                }
+            }
+        }
+
+        System.err.println("补全结果：");
+        for (String s : result) {
+            System.out.println(s);
+        }
+
+        return new ArrayList<>(result);
     }
 }
