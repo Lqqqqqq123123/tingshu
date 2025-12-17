@@ -3,6 +3,7 @@ package com.atguigu.tingshu.common.rabbit.service;
 
 import com.alibaba.fastjson.JSON;
 import com.atguigu.tingshu.common.rabbit.entity.GuiguCorrelationData;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -12,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Slf4j
 public class RabbitService {
 
     @Autowired

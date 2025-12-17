@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.math.BigDecimal;
 import java.util.Date;
 
+// 用户播放进度：存到了mongodb中，每个用户都是一个单独的集合，从而提高查询效率
+
 @Data
 @Schema(description = "UserListenProcess")
 @Document
@@ -17,8 +19,8 @@ public class UserListenProcess {
 	@Id
 	private String id;
 
-	@Schema(description = "用户id")
-	private Long userId;
+//	@Schema(description = "用户id")
+//	private Long userId;
 
 	@Schema(description = "专辑id")
 	private Long albumId;
@@ -29,8 +31,8 @@ public class UserListenProcess {
 	@Schema(description = "相对于音频开始位置的播放跳出位置，单位为秒。比如当前音频总时长60s，本次播放到音频第25s处就退出或者切到下一首，那么break_second就是25")
 	private BigDecimal breakSecond;
 
-	@Schema(description = "是否显示")
-	private Integer isShow;
+//	@Schema(description = "是否显示")
+//	private Integer isShow;
 
 	@Schema(description = "创建时间")
 	private Date createTime;

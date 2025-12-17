@@ -2,6 +2,7 @@ package com.atguigu.tingshu.album.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
+import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.mapper.TrackStatMapper;
 import com.atguigu.tingshu.album.service.AuditService;
@@ -9,14 +10,12 @@ import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.album.service.VodService;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.AlbumStat;
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.model.album.TrackStat;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
 import com.atguigu.tingshu.user.client.UserFeignClient;
-import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
-import com.atguigu.tingshu.vo.album.TrackInfoVo;
-import com.atguigu.tingshu.vo.album.TrackListVo;
-import com.atguigu.tingshu.vo.album.TrackMediaInfoVo;
+import com.atguigu.tingshu.vo.album.*;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -53,6 +52,8 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
     private AuditService auditService;
     @Autowired
     private UserFeignClient userFeignClient;
+    @Autowired
+    private AlbumStatMapper albumStatMapper;
 
 
 
@@ -376,6 +377,73 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
         }
 
         return pageInfo;
+
+    }
+
+    /**
+     * 查询声音统计信息
+     * @param trackId
+     * @return TrackStatVo
+     */
+    @Override
+    public TrackStatVo getTrackStatVo(Long trackId) {
+        return trackInfoMapper.getTrackStatVo(trackId);
+    }
+
+    /**
+     * 更新声音 + 专辑的统计信息
+     * @param vo
+     */
+    @Override
+    public void updateStat(TrackStatMqVo vo) {
+
+        // 1. 更新声音统计信息
+        // 1.1 先拿到本次更新的数据
+        String type = vo.getStatType();
+        Long trackId = vo.getTrackId();
+        Long albumId = vo.getAlbumId();
+        Integer count = vo.getCount();
+
+
+        // 1.2 更新声音统计信息
+//        LambdaQueryWrapper<TrackStat> wr1 = new LambdaQueryWrapper<>();
+//        wr1.eq(TrackStat::getTrackId, trackId);
+//        wr1.eq(TrackStat::getStatType, type);
+//        TrackStat trackStat = trackStatMapper.selectOne(wr1);
+//
+//        if(trackStat != null){
+//            trackStat.setStatNum(trackStat.getStatNum() + count);
+//            trackStatMapper.updateById(trackStat);
+//        }
+        trackStatMapper.update(
+                null,
+                new LambdaUpdateWrapper<TrackStat>()
+                        .eq(TrackStat::getTrackId, trackId)
+                        .eq(TrackStat::getStatType, type)
+                        .setSql("stat_num = stat_num + " +  count)
+        );
+
+
+        // 2. 如果是声音的播放 | 评论,那么还得更新专辑的统计信息
+        if(type.equals(SystemConstant.TRACK_STAT_PLAY) || type.equals(SystemConstant.TRACK_STAT_COMMENT)){
+            // 声音的统计信息:'统计类型：0701-播放量 0702-收藏量 0703-点赞量 0704-评论数',
+            // 专辑的统计信息:统计类型：0401-播放量 0402-订阅量 0403-购买量 0404-评论数',
+            LambdaUpdateWrapper<AlbumStat> wr2 = new LambdaUpdateWrapper<>();
+            // 2.1 如果是声音的播放,就对应专辑的播放量
+            wr2.eq(AlbumStat::getAlbumId, albumId);
+            if(type.equals(SystemConstant.TRACK_STAT_PLAY))
+                wr2.eq(AlbumStat::getStatType, SystemConstant.ALBUM_STAT_PLAY);
+
+            // 2.2 如果是声音的评论,就对应专辑的评论数
+            if(type.equals(SystemConstant.TRACK_STAT_COMMENT))
+                wr2.eq(AlbumStat::getStatType, SystemConstant.ALBUM_STAT_COMMENT);
+
+            // 2.3 更新专辑的统计信息
+            albumStatMapper.update(
+                    null,
+                    wr2.setSql("stat_num = stat_num + " +  count)
+            );
+        }
 
     }
 }

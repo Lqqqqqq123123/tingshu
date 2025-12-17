@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
+import com.atguigu.tingshu.vo.search.AlbumUpdateStatVo;
 
 import java.io.IOException;
 import java.util.List;
@@ -73,4 +74,11 @@ public interface SearchService {
      * @return
      */
     List<String> completeSuggest(String keyword);
+
+    /**
+     * // todo:这里传入的参数是 TrackStatMqVo, 后续该方法可能重载,因为专辑的其他统计信息也会被更改,所以最好重载为 statType, Count, AlbumId,可以用一个Vo来封装
+     * 更新 es 中专辑的统计信息
+     * @param vo 专辑更新统计信息 vo{albumid, statType, count}
+     */
+    void updateAlbumStat(AlbumUpdateStatVo vo);
 }

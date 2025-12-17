@@ -52,5 +52,17 @@
         group by ti.id
         order by ti.order_num
     </select>
+
+
+    <select id="getTrackStatVo" resultType="com.atguigu.tingshu.vo.album.TrackStatVo">
+        SELECT
+            max(IF(stat_type='0701',stat_num,0)) as play_stat_num,
+            max(IF(stat_type='0702',stat_num,0)) as collect_stat_num,
+            max(IF(stat_type='0703',stat_num,0)) as praise_stat_num,
+            max(IF(stat_type='0704',stat_num,0)) as comment_stat_num
+        from
+            track_stat ts
+        where track_id = #{trackId} and is_deleted = 0
+    </select>
 </mapper>
 

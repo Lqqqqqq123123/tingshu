@@ -16,6 +16,7 @@ import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.alibaba.fastjson.JSON;
 import com.atguigu.tingshu.album.AlbumFeignClient;
+import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.BaseCategory3;
@@ -30,6 +31,7 @@ import com.atguigu.tingshu.search.service.SearchService;
 import com.atguigu.tingshu.user.client.UserFeignClient;
 import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
+import com.atguigu.tingshu.vo.search.AlbumUpdateStatVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -66,7 +68,7 @@ public class SearchServiceImpl implements SearchService {
     @Qualifier("threadPoolTaskExecutor")
     private Executor executor;
     @Autowired
-    private ElasticsearchClient  elasticsearchClient;
+    private ElasticsearchClient elasticsearchClient;
 
     private static final Map<String, String> ORDER_MAP = Map.of(
             "1", "hotScore",
@@ -96,7 +98,7 @@ public class SearchServiceImpl implements SearchService {
         // 手动处理专辑属性值集合
         List<AlbumAttributeValue> list = albumInfo.getAlbumAttributeValueVoList();
 
-        if(!CollectionUtils.isEmpty(list)){
+        if (!CollectionUtils.isEmpty(list)) {
             List<AttributeValueIndex> list1 = list.stream()
                     .map(v -> {
                         AttributeValueIndex t = new AttributeValueIndex();
@@ -106,7 +108,7 @@ public class SearchServiceImpl implements SearchService {
                     })
                     .toList();
 
-           po.setAttributeValueIndexList(list1);
+            po.setAttributeValueIndexList(list1);
         }
 
         // 1.2 获取三级分类信息
@@ -181,9 +183,9 @@ public class SearchServiceImpl implements SearchService {
     }
 
 
-
     /**
      * 站内搜索
+     *
      * @param albumIndexQuery
      * @return
      */
@@ -212,7 +214,6 @@ public class SearchServiceImpl implements SearchService {
         System.err.println("本次检索DSL：");
         System.out.println(searchRequest);
 
-
         // 2. 执行查询
         SearchResponse<AlbumInfoIndex> resp = elasticsearchClient.search(searchRequest, AlbumInfoIndex.class);
 
@@ -233,15 +234,15 @@ public class SearchServiceImpl implements SearchService {
         // 1.1 先去设置分页参数
         int curPage = albumIndexQuery.getPageNo();
         int pageSize = albumIndexQuery.getPageSize();
-        if(curPage <= 0) curPage = 1;
+        if (curPage <= 0) curPage = 1;
         builder.from((curPage - 1) * pageSize).size(pageSize);
 
         // 1.2 设置排序规则
         String order = albumIndexQuery.getOrder();
-        if(StringUtils.hasText(order)){
+        if (StringUtils.hasText(order)) {
             // 排序字段规则 排序字段对应序号：排序类型 1：综合排序（hot score) 2：播放量 3：最近更新
             String[] split = order.split(":");
-            if(split != null && split.length == 2){
+            if (split != null && split.length == 2) {
                 String field_num = split[0];
                 String field = ORDER_MAP.get(field_num);
                 String type = split[1];
@@ -249,9 +250,9 @@ public class SearchServiceImpl implements SearchService {
 //                    return s.field(t -> t.field(field).order(SortOrder.valueOf(type)));
 //                });
 
-                SortOrder sortOrder = type.equals("desc")? SortOrder.Desc : SortOrder.Asc;
+                SortOrder sortOrder = type.equals("desc") ? SortOrder.Desc : SortOrder.Asc;
                 builder.sort(s -> s.field(
-                        f->f.field(field).order(sortOrder)
+                        f -> f.field(field).order(sortOrder)
                 ));
             }
         }
@@ -259,7 +260,7 @@ public class SearchServiceImpl implements SearchService {
 
         // 1.3 设置查询关键字，如果有查询关键字，记得进行高亮（标题和简介同时全文匹配）
         String keyWord = albumIndexQuery.getKeyword();
-        if(StringUtils.hasText(keyWord)){
+        if (StringUtils.hasText(keyWord)) {
 
 
             // todo : 可以改为只匹配标题 | 简介
@@ -272,7 +273,7 @@ public class SearchServiceImpl implements SearchService {
 
             // 1.5 高亮
             builder.highlight(h -> h.fields
-                            ("albumTitle", h1 -> h1.preTags("<font color='red'><strong>").postTags("</strong></font>"))
+                    ("albumTitle", h1 -> h1.preTags("<font color='red'><strong>").postTags("</strong></font>"))
             );
 
         }
@@ -282,27 +283,25 @@ public class SearchServiceImpl implements SearchService {
         Long category3Id = albumIndexQuery.getCategory3Id();
         Long category2Id = albumIndexQuery.getCategory2Id();
         Long category1Id = albumIndexQuery.getCategory1Id();
-        if(category3Id != null){
+        if (category3Id != null) {
             boolQueryBuilder.filter(f -> f.term(t -> t.field("category3Id").value(category3Id)));
         }
 
-        if(category2Id != null){
+        if (category2Id != null) {
             boolQueryBuilder.filter(f -> f.term(t -> t.field("category2Id").value(category2Id)));
         }
-        if(category1Id != null){
+        if (category1Id != null) {
             boolQueryBuilder.filter(f -> f.term(t -> t.field("category1Id").value(category1Id)));
         }
 
         // 1.6 标签
         //多组标签List集合 每组标签形式=标签ID：标签值ID
         List<String> attributeList = albumIndexQuery.getAttributeList();
-        if(!CollectionUtils.isEmpty(attributeList))
-        {
+        if (!CollectionUtils.isEmpty(attributeList)) {
             for (String attribute : attributeList) {
                 // 1.6.1 获取标签ID和标签值ID
-                String [] split = attribute.split(":");
-                if(split != null && split.length == 2)
-                {
+                String[] split = attribute.split(":");
+                if (split != null && split.length == 2) {
                     Long attributeId = Long.parseLong(split[0]);
                     Long attributeValueId = Long.parseLong(split[1]);
                     boolQueryBuilder.filter(
@@ -346,35 +345,35 @@ public class SearchServiceImpl implements SearchService {
 
         // 2. 返回结果的设置
         /**
-                 hits 数组下的每一个元素都是这样子的，
-                 {
-                 "_index": "albuminfo",
-                 "_id": "1416",
-                 "_score": null,
-                 "_source": {
-                 "includeTrackCount": 25,
-                 "category2Id": 120,
-                 "category1Id": 4,
-                 "albumIntro": "同名漫画由iCiyuan动漫原著，正在火热更新中！绝情总裁×温柔钢琴家！温念南三年的付出，换来的却是冷眼...",
-                 "isFinished": "0",
-                 "coverUrl": "https://imagev2.xmcdn.com/storages/2c9e-audiofreehighqps/42/9F/CMCoOR4ElQKiAAHbegC20LFX.jpg",
-                 "payType": "0102",
-                 "playStatNum": 92192,
-                 "createTime": "2023-04-04T16:56:34.000Z",
-                 "category3Id": 1096,
-                 "albumTitle": "他说我是黑莲花|道斯基&蝎子莱莱播讲|同名漫画原作",
-                 "_class": "com.atguigu.tingshu.model.search.AlbumInfoIndex",
-                 "id": 1416
-                 },
-                 "highlight": {
-                 "albumTitle": [
-                 "他说我是黑莲花|<font color='red'><strong>道</strong></font>斯基&蝎子莱莱播讲|同名漫画原作"
-                 ]
-                 },
-                 "sort": [
-                 92192
-                 ]
-                 },
+         hits 数组下的每一个元素都是这样子的，
+         {
+         "_index": "albuminfo",
+         "_id": "1416",
+         "_score": null,
+         "_source": {
+         "includeTrackCount": 25,
+         "category2Id": 120,
+         "category1Id": 4,
+         "albumIntro": "同名漫画由iCiyuan动漫原著，正在火热更新中！绝情总裁×温柔钢琴家！温念南三年的付出，换来的却是冷眼...",
+         "isFinished": "0",
+         "coverUrl": "https://imagev2.xmcdn.com/storages/2c9e-audiofreehighqps/42/9F/CMCoOR4ElQKiAAHbegC20LFX.jpg",
+         "payType": "0102",
+         "playStatNum": 92192,
+         "createTime": "2023-04-04T16:56:34.000Z",
+         "category3Id": 1096,
+         "albumTitle": "他说我是黑莲花|道斯基&蝎子莱莱播讲|同名漫画原作",
+         "_class": "com.atguigu.tingshu.model.search.AlbumInfoIndex",
+         "id": 1416
+         },
+         "highlight": {
+         "albumTitle": [
+         "他说我是黑莲花|<font color='red'><strong>道</strong></font>斯基&蝎子莱莱播讲|同名漫画原作"
+         ]
+         },
+         "sort": [
+         92192
+         ]
+         },
          */
         List<AlbumInfoIndexVo> list = resp.hits().hits()
                 .stream()
@@ -383,9 +382,8 @@ public class SearchServiceImpl implements SearchService {
                     AlbumInfoIndexVo vo = BeanUtil.copyProperties(t.source(), AlbumInfoIndexVo.class);
 
                     // 2. 如果存在高亮数据，则设置高亮数据
-                    if(!CollectionUtils.isEmpty(t.highlight())){
-                        if(t.highlight().containsKey("albumTitle"))
-                        {
+                    if (!CollectionUtils.isEmpty(t.highlight())) {
+                        if (t.highlight().containsKey("albumTitle")) {
                             vo.setAlbumTitle(t.highlight().get("albumTitle").get(0));
                         }
                     }
@@ -398,6 +396,7 @@ public class SearchServiceImpl implements SearchService {
 
     /**
      * 查询1级分类下置顶3级分类热度TOP6专辑
+     *
      * @param category1Id
      * @return [{"baseCategory3":{三级分类对象},list:[专辑列表]},,{其他6个置顶分类热门专辑Map}]
      */
@@ -419,17 +418,17 @@ public class SearchServiceImpl implements SearchService {
         ).toList();
 
         builder.query(
-                q-> q.terms(t->t.field("category3Id").terms(
-                        e->e.value(list)
+                q -> q.terms(t -> t.field("category3Id").terms(
+                        e -> e.value(list)
                 )));
 
 
         // 2.3 聚合查询
         builder.aggregations("c3_agg", a -> a.terms(
-                t->t.field("category3Id").size(7))
+                        t -> t.field("category3Id").size(7))
                 .aggregations("top6", a1 -> a1.topHits(
                         t -> t.size(6).sort(
-                                s -> s.field( v -> v.field("hotScore").order(SortOrder.Desc))
+                                s -> s.field(v -> v.field("hotScore").order(SortOrder.Desc))
                         )
                 ))
         );
@@ -446,7 +445,7 @@ public class SearchServiceImpl implements SearchService {
         Map<String, Aggregate> aggregations = resp.aggregations();
         List<Map<String, Object>> result = new ArrayList<>();
 
-        if(!CollectionUtils.isEmpty(aggregations)){
+        if (!CollectionUtils.isEmpty(aggregations)) {
             Aggregate c3Agg = aggregations.get("c3_agg");
             // 3.1 将组合的结果转为 LongtermsAggregate
             List<LongTermsBucket> buckets = c3Agg.lterms().buckets().array();
@@ -466,7 +465,7 @@ public class SearchServiceImpl implements SearchService {
 //                            return objectMapper.convertValue(tmap, AlbumInfoIndex.class);
 
                             String json = t.source().toString();
-                            AlbumInfoIndex albumInfoIndex =  JSON.parseObject(json, AlbumInfoIndex.class);
+                            AlbumInfoIndex albumInfoIndex = JSON.parseObject(json, AlbumInfoIndex.class);
                             return albumInfoIndex;
                         })
                         .toList();
@@ -483,6 +482,7 @@ public class SearchServiceImpl implements SearchService {
 
     /**
      * 保存建议索引
+     *
      * @param po
      */
     @Override
@@ -512,6 +512,7 @@ public class SearchServiceImpl implements SearchService {
 
     /**
      * 根据用户已录入字符查询提词索引库进行自动补全关键字
+     *
      * @param keyword
      * @return
      */
@@ -582,7 +583,7 @@ public class SearchServiceImpl implements SearchService {
         resp.suggest().forEach((k, v) -> {
             // 获取提示结果
             List<CompletionSuggestOption<SuggestIndex>> list = v.get(0).completion().options();
-            if(!CollectionUtils.isEmpty(list)){
+            if (!CollectionUtils.isEmpty(list)) {
                 list.forEach(t -> {
                     result.add(t.source().getTitle());
                 });
@@ -591,9 +592,8 @@ public class SearchServiceImpl implements SearchService {
         });
 
 
-
         // 4 如果补全的结果数量小于10个，则尝试用全文检索补齐到 10 个
-        if(result.size() < 10){
+        if (result.size() < 10) {
             // 去根据keyword对应的汉字进行全文检索
             //4.1 创建DSL
             SearchRequest.Builder builder1 = new SearchRequest.Builder();
@@ -610,10 +610,10 @@ public class SearchServiceImpl implements SearchService {
 
             List<Hit<AlbumInfoIndex>> hits = resp1.hits().hits();
 
-            if(!CollectionUtils.isEmpty(hits)){
+            if (!CollectionUtils.isEmpty(hits)) {
                 for (Hit<AlbumInfoIndex> hit : hits) {
                     result.add(hit.source().getAlbumTitle());
-                    if(result.size() >= 10){
+                    if (result.size() >= 10) {
                         break;
                     }
                 }
@@ -626,5 +626,44 @@ public class SearchServiceImpl implements SearchService {
         }
 
         return new ArrayList<>(result);
+    }
+
+    /**
+     * 更新专辑统计信息
+     *
+     * @param vo 专辑更新统计信息 vo{albumid, statType, count}
+     */
+    @Override
+    public void updateAlbumStat(AlbumUpdateStatVo vo) {
+        // 1. 解析 vo
+        String statType = vo.getStatType();
+        Integer count = vo.getCount();
+        Long albumId = vo.getAlbumId();
+
+        // 2. 从 es 中获得专辑信息
+        Optional<AlbumInfoIndex> optional = albumInfoRepository.findById(albumId);
+        if (!optional.isPresent()) {
+            log.warn("Album not found for id: {}", albumId);
+            return;
+        }
+
+        AlbumInfoIndex albumInfoIndex = optional.get();
+
+        // 3. 专辑信息更新
+        switch (statType) {
+            case SystemConstant.ALBUM_STAT_PLAY:
+                albumInfoIndex.setPlayStatNum(albumInfoIndex.getPlayStatNum() + count);
+                break;
+            case SystemConstant.ALBUM_STAT_SUBSCRIBE:
+                albumInfoIndex.setSubscribeStatNum(albumInfoIndex.getSubscribeStatNum() + count);
+                break;
+            case SystemConstant.ALBUM_STAT_BUY:
+                albumInfoIndex.setBuyStatNum(albumInfoIndex.getBuyStatNum() + count);
+                break;
+            case SystemConstant.ALBUM_STAT_COMMENT:
+                albumInfoIndex.setCommentStatNum(albumInfoIndex.getCommentStatNum() + count);
+        }
+        // 4. 专辑信息保存
+        albumInfoRepository.save(albumInfoIndex);
     }
 }

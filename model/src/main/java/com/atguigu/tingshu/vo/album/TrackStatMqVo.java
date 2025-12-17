@@ -3,10 +3,14 @@ package com.atguigu.tingshu.vo.album;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
 @Schema(description = "TrackStatMqVo")
-public class TrackStatMqVo {
+public class TrackStatMqVo implements Serializable {
 
+    // 保证序列化和反序列化的对象是同一个
+    private static final long serialVersionUID = 1L;
 	@Schema(description = "业务编号：去重使用")
 	private String businessNo;
 
