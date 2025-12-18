@@ -3,6 +3,7 @@ package com.atguigu.tingshu.search.api;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.search.service.SearchService;
+import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -81,6 +82,30 @@ public class SearchApiController {
     @GetMapping("/albumInfo/completeSuggest/{keyword}")
     public Result<List<String>> completeSuggest(@PathVariable String keyword){
         List<String> list = searchService.completeSuggest(keyword);
+        return Result.ok(list);
+    }
+
+
+    /**
+     * 更新保存在 redis 的专辑排行榜信息
+     */
+    @Operation(summary = "更新专辑的排行榜信息")
+    @GetMapping("/albumInfo/updateLatelyAlbumRanking/{top}")
+    public Result updateLatelyAlbumRanking(@PathVariable("top") @RequestParam(defaultValue = "10") Integer top){
+        searchService.updateLatelyAlbumRanking(top);
+        return Result.ok();
+    }
+
+    /**
+     * 获取不同分类下不同排行维度TOPN的数据
+     * @param category1Id
+     * @param dimension
+     * @return {code:, msg:, data:[vo1, vo2 ,vo3]}
+     */
+    @Operation(summary = "获取不同分类下不同排行维度TOP20")
+    @GetMapping("/albumInfo/findRankingList/{category1Id}/{dimension}")
+    public Result<List<AlbumInfoIndexVo>> getRankingList(@PathVariable Long category1Id, @PathVariable String dimension) {
+        List<AlbumInfoIndexVo> list = searchService.getRankingList(category1Id, dimension);
         return Result.ok(list);
     }
 }

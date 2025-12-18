@@ -7,6 +7,7 @@ import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.IdUtil;
+import com.atguigu.tingshu.common.cache.RedisCache;
 import com.atguigu.tingshu.common.constant.RedisConstant;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
 import com.atguigu.tingshu.common.rabbit.service.RabbitService;
@@ -114,6 +115,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
      * @return Vo
      */
     @Override
+    @RedisCache(prefix = "user:userInfoVo:", timeout = 3600)
     public UserInfoVo getUserInfo(Long userId) {
         UserInfo userInfo = userInfoMapper.selectById(userId);
         return BeanUtil.copyProperties(userInfo, UserInfoVo.class);

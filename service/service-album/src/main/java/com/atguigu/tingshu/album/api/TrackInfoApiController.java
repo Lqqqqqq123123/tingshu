@@ -2,6 +2,7 @@ package com.atguigu.tingshu.album.api;
 
 import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.album.service.VodService;
+import com.atguigu.tingshu.common.cache.RedisCache;
 import com.atguigu.tingshu.common.login.Login;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Tag(name = "声音管理")
 @RestController
@@ -92,9 +94,12 @@ public class TrackInfoApiController {
      * @return
      */
     @Login
+    @RedisCache(prefix = "album:trackInfo:", timeout = 3600 , timeunit = TimeUnit.SECONDS)
     @Operation(summary = "根据声音ID查询声音信息")
     @GetMapping("/trackInfo/getTrackInfo/{id}")
+    // 这里直接掉的 mp 的服务层方法，所以缓存注解只能加到改控制器上
     public Result<TrackInfo> getTrackInfo(@PathVariable Long id) {
+
         TrackInfo trackInfo = trackInfoService.getById(id);
         return Result.ok(trackInfo);
     }

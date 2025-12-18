@@ -6,6 +6,7 @@ import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.service.AlbumAttributeValueService;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.album.service.AuditService;
+import com.atguigu.tingshu.common.cache.RedisCache;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
 import com.atguigu.tingshu.common.rabbit.service.RabbitService;
@@ -21,7 +22,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -50,6 +53,11 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 
     @Autowired
     private RabbitService rabbitService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+    @Autowired
+    private RedissonClient redissonClient;
 
 
     @Override
@@ -153,8 +161,76 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
         rabbitService.sendMessage(MqConst.EXCHANGE_ALBUM, MqConst.ROUTING_ALBUM_LOWER, id);
     }
 
+
+
+    /**
+     * 根据 id 查询专辑信息，优先从 redis 中查询，如果 redis 中没有，才去调用 getAlbumInfoFromDB 从 数据库查询并写入到 redis中
+     * @param id 专辑 id
+     * @return 专辑信息
+     */
     @Override
+    @RedisCache(prefix = "album:albuminfo:", timeout = 3600)
     public AlbumInfo getAlbumInfo(Long id) {
+//        try {
+//            // 1. 先从缓存中查询专辑信息
+//            // 1.1 构建缓存key
+//            String albumInfoKey = RedisConstant.ALBUM_INFO_PREFIX + id;
+//            // 1.2 获取缓存数据
+//            AlbumInfo albumInfo = (AlbumInfo) redisTemplate.opsForValue().get(albumInfoKey);
+//            // 1.3 命中：返回数据
+//            if (albumInfo != null) {
+//                log.info("liutianba7：命中缓存：{}", albumInfoKey);
+//                 return albumInfo;
+//            }
+//
+//            // 2. 未命中：获取分布式锁
+//            // 2.1 构建锁的key
+//            String lockKey = albumInfoKey + RedisConstant.CACHE_LOCK_SUFFIX;
+//
+//            // 2.2 获取锁实例
+//            RLock lock = redissonClient.getLock(lockKey);
+//
+//            // 2.3 尝试获取分布式锁
+//            boolean is_locked = lock.tryLock(RedisConstant.ALBUM_LOCK_WAIT_PX1, RedisConstant.ALBUM_LOCK_EXPIRE_PX2, TimeUnit.SECONDS);
+//
+//            // 3. 获取锁成功：从数据库查数据，然后写入缓存，返回数据
+//            if(is_locked){
+//                try {
+//                    // 3.1 从数据库查询专辑信息
+//                    AlbumInfo albuminfo = this.getAlbumInfoFromDB(id);
+//                    // 3.2 写入缓存 为了解决缓存雪崩：缓存的过期时间要在基础值上 + 一个随机值
+//                    redisTemplate.opsForValue().set(albumInfoKey, albuminfo, RedisConstant.ALBUM_TIMEOUT + new Random().nextInt(100), TimeUnit.SECONDS); // 一小时的过期时间 + 一个随机值
+//                    // 3.4 返回数据
+//                    return albuminfo;
+//                } finally {
+//                    // 3.3 释放锁
+//                    lock.unlock();
+//                }
+//
+//            }
+//            else{
+//                // 4. 获取锁失败：说明 waitTime 时间到了还没拿到锁
+//                // 此时可以再次尝试调用本方法（递归），或者直接报错/降级
+//                // 通常由于 tryLock 内部已经等了很久了，再查一次缓存即可
+//                Thread.sleep(200); // 这里的 sleep 是为了避免极端情况下的栈溢出重试
+//                return getAlbumInfo(id);
+//            }
+//        } catch (InterruptedException e) {
+//
+//            log.info("liutianba: getAlbumInfo 方法出现异常");
+//            // 5. 兜底：redis宕机，直接从数据库查询
+//            return this.getAlbumInfoFromDB(id);
+//        }
+        return this.getAlbumInfoFromDB(id);
+    }
+
+    /**
+     * 根据 id 从数据库查询专辑信息
+     * @param id 专辑id
+     * @return 专辑信息
+     */
+    @Override
+    public AlbumInfo getAlbumInfoFromDB(Long id) {
         // 1. 查询专辑信息 album_info
         AlbumInfo albumInfo = albumInfoMapper.selectById(id);
 
@@ -225,6 +301,7 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
      * @return
      */
     @Override
+    @RedisCache(prefix = "album:albumstat:", timeout = 3600)
     public AlbumStatVo getAlbumStatVo(Long albumId) {
         return albumInfoMapper.getAlbumStatVo(albumId);
     }

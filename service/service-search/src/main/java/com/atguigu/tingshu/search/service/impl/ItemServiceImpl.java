@@ -78,7 +78,7 @@ public class ItemServiceImpl implements ItemService {
 
 
         // 6. 编排：要求所有任务都完成，才能返回结果
-        CompletableFuture.allOf(task1, task2, task3, task4).orTimeout(1, TimeUnit.SECONDS).join();
+        CompletableFuture.allOf(task1, task2, task3, task4).orTimeout(2, TimeUnit.SECONDS).join();
 
         return item;
 

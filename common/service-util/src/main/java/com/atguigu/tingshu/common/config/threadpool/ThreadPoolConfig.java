@@ -1,10 +1,14 @@
 package com.atguigu.tingshu.common.config.threadpool;
 
+import com.atguigu.tingshu.common.zipkin.ZipkinHelper;
+import com.atguigu.tingshu.common.zipkin.ZipkinTaskDecorator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import java.util.concurrent.*;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * @author liutianba7
@@ -29,6 +33,10 @@ public class ThreadPoolConfig {
 //                new ThreadPoolExecutor.CallerRunsPolicy()
 //        );
 //    }
+
+
+    @Autowired(required = false)
+    private ZipkinHelper zipkinHelper;
 
     /**
      * 基于Spring提供线程池Class-threadPoolTaskExecutor 功能更强
@@ -56,6 +64,9 @@ public class ThreadPoolConfig {
         taskExecutor.setAwaitTerminationSeconds(300);
         // 线程不够用时由调用的线程处理该任务
         taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
+        // 为线程池设置一个装饰器，解决链路追踪不完整的问题
+        taskExecutor.setTaskDecorator(new ZipkinTaskDecorator(zipkinHelper));
         return taskExecutor;
     }
 }

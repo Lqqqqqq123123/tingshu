@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
+import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
 import com.atguigu.tingshu.vo.search.AlbumUpdateStatVo;
 
@@ -81,4 +82,18 @@ public interface SearchService {
      * @param vo 专辑更新统计信息 vo{albumid, statType, count}
      */
     void updateAlbumStat(AlbumUpdateStatVo vo);
+
+    /**
+     * 更新保存在 redis 的专辑排行榜信息
+     * @param top 排行榜的专辑数量
+     */
+    void updateLatelyAlbumRanking(Integer top);
+
+    /**
+     * 获取不同分类下不同排行维度 TOPN 的数据
+     * @param category1Id
+     * @param dimension
+     * @return {code:, msg:, data:[vo1, vo2 ,vo3]}
+     */
+    List<AlbumInfoIndexVo> getRankingList(Long category1Id, String dimension);
 }

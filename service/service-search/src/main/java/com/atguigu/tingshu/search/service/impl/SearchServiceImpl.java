@@ -16,11 +16,9 @@ import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.alibaba.fastjson.JSON;
 import com.atguigu.tingshu.album.AlbumFeignClient;
+import com.atguigu.tingshu.common.constant.RedisConstant;
 import com.atguigu.tingshu.common.constant.SystemConstant;
-import com.atguigu.tingshu.model.album.AlbumAttributeValue;
-import com.atguigu.tingshu.model.album.AlbumInfo;
-import com.atguigu.tingshu.model.album.BaseCategory3;
-import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.atguigu.tingshu.model.album.*;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.model.search.AttributeValueIndex;
 import com.atguigu.tingshu.model.search.SuggestIndex;
@@ -38,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.elasticsearch.core.suggest.Completion;
+import org.springframework.data.redis.core.BoundHashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
@@ -70,11 +70,10 @@ public class SearchServiceImpl implements SearchService {
     @Autowired
     private ElasticsearchClient elasticsearchClient;
 
-    private static final Map<String, String> ORDER_MAP = Map.of(
-            "1", "hotScore",
-            "2", "playStatNum",
-            "3", "createTime"
-    );
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    private static final Map<String, String> ORDER_MAP = Map.of("1", "hotScore", "2", "playStatNum", "3", "createTime");
     private final static String ALBUM_INDEX_NAME = "albuminfo";
     private static final String SUGGEST_INDEX_NAME = "suggestinfo";
     @Autowired
@@ -99,14 +98,12 @@ public class SearchServiceImpl implements SearchService {
         List<AlbumAttributeValue> list = albumInfo.getAlbumAttributeValueVoList();
 
         if (!CollectionUtils.isEmpty(list)) {
-            List<AttributeValueIndex> list1 = list.stream()
-                    .map(v -> {
-                        AttributeValueIndex t = new AttributeValueIndex();
-                        t.setAttributeId(v.getAttributeId());
-                        t.setValueId(v.getValueId());
-                        return t;
-                    })
-                    .toList();
+            List<AttributeValueIndex> list1 = list.stream().map(v -> {
+                AttributeValueIndex t = new AttributeValueIndex();
+                t.setAttributeId(v.getAttributeId());
+                t.setValueId(v.getValueId());
+                return t;
+            }).toList();
 
             po.setAttributeValueIndexList(list1);
         }
@@ -251,9 +248,7 @@ public class SearchServiceImpl implements SearchService {
 //                });
 
                 SortOrder sortOrder = type.equals("desc") ? SortOrder.Desc : SortOrder.Asc;
-                builder.sort(s -> s.field(
-                        f -> f.field(field).order(sortOrder)
-                ));
+                builder.sort(s -> s.field(f -> f.field(field).order(sortOrder)));
             }
         }
 
@@ -265,16 +260,10 @@ public class SearchServiceImpl implements SearchService {
 
             // todo : 可以改为只匹配标题 | 简介
             // 1.4 全文匹配 标题加简介同时匹配
-            boolQueryBuilder.must(
-                    q -> q.multiMatch(m -> m.query(keyWord)
-                            .fields("albumTitle", "albumIntro")
-                    )
-            );
+            boolQueryBuilder.must(q -> q.multiMatch(m -> m.query(keyWord).fields("albumTitle", "albumIntro")));
 
             // 1.5 高亮
-            builder.highlight(h -> h.fields
-                    ("albumTitle", h1 -> h1.preTags("<font color='red'><strong>").postTags("</strong></font>"))
-            );
+            builder.highlight(h -> h.fields("albumTitle", h1 -> h1.preTags("<font color='red'><strong>").postTags("</strong></font>")));
 
         }
 
@@ -304,14 +293,7 @@ public class SearchServiceImpl implements SearchService {
                 if (split != null && split.length == 2) {
                     Long attributeId = Long.parseLong(split[0]);
                     Long attributeValueId = Long.parseLong(split[1]);
-                    boolQueryBuilder.filter(
-                            f -> f.nested(n -> n.path("attributeValueIndexList").query(
-                                    q -> q.bool(b -> b
-                                            .filter(
-                                                    f1 -> f1.term(t -> t.field("attributeValueIndexList.attributeId").value(attributeId)))
-                                            .filter(
-                                                    f1 -> f1.term(t -> t.field("attributeValueIndexList.valueId").value(attributeValueId)))))
-                            ));
+                    boolQueryBuilder.filter(f -> f.nested(n -> n.path("attributeValueIndexList").query(q -> q.bool(b -> b.filter(f1 -> f1.term(t -> t.field("attributeValueIndexList.attributeId").value(attributeId))).filter(f1 -> f1.term(t -> t.field("attributeValueIndexList.valueId").value(attributeValueId)))))));
                 }
             }
         }
@@ -319,14 +301,7 @@ public class SearchServiceImpl implements SearchService {
         builder.query(boolQueryBuilder.build()._toQuery());
 
         // 1.7 _source
-        builder.source(s -> s.filter(
-                f -> f.excludes("attributeValueIndexList",
-                        "hotScore",
-                        "commentStatNum",
-                        "buyStatNum",
-                        "subscribeStatNum",
-                        "announcerName")
-        ));
+        builder.source(s -> s.filter(f -> f.excludes("attributeValueIndexList", "hotScore", "commentStatNum", "buyStatNum", "subscribeStatNum", "announcerName")));
 
         return builder.build();
 
@@ -375,21 +350,18 @@ public class SearchServiceImpl implements SearchService {
          ]
          },
          */
-        List<AlbumInfoIndexVo> list = resp.hits().hits()
-                .stream()
-                .map(t -> {
-                    // 1. 获取数据
-                    AlbumInfoIndexVo vo = BeanUtil.copyProperties(t.source(), AlbumInfoIndexVo.class);
+        List<AlbumInfoIndexVo> list = resp.hits().hits().stream().map(t -> {
+            // 1. 获取数据
+            AlbumInfoIndexVo vo = BeanUtil.copyProperties(t.source(), AlbumInfoIndexVo.class);
 
-                    // 2. 如果存在高亮数据，则设置高亮数据
-                    if (!CollectionUtils.isEmpty(t.highlight())) {
-                        if (t.highlight().containsKey("albumTitle")) {
-                            vo.setAlbumTitle(t.highlight().get("albumTitle").get(0));
-                        }
-                    }
-                    return vo;
-                })
-                .toList();
+            // 2. 如果存在高亮数据，则设置高亮数据
+            if (!CollectionUtils.isEmpty(t.highlight())) {
+                if (t.highlight().containsKey("albumTitle")) {
+                    vo.setAlbumTitle(t.highlight().get("albumTitle").get(0));
+                }
+            }
+            return vo;
+        }).toList();
         newResp.setList(list);
         return newResp;
     }
@@ -413,25 +385,13 @@ public class SearchServiceImpl implements SearchService {
         builder.index("albuminfo").size(0);  // 我们只要分组后的结果，不需要 hits
 
         // 2.2 多值等值查询的写法
-        List<FieldValue> list = data.stream().map(
-                t -> FieldValue.of(t.getId())
-        ).toList();
+        List<FieldValue> list = data.stream().map(t -> FieldValue.of(t.getId())).toList();
 
-        builder.query(
-                q -> q.terms(t -> t.field("category3Id").terms(
-                        e -> e.value(list)
-                )));
+        builder.query(q -> q.terms(t -> t.field("category3Id").terms(e -> e.value(list))));
 
 
         // 2.3 聚合查询
-        builder.aggregations("c3_agg", a -> a.terms(
-                        t -> t.field("category3Id").size(7))
-                .aggregations("top6", a1 -> a1.topHits(
-                        t -> t.size(6).sort(
-                                s -> s.field(v -> v.field("hotScore").order(SortOrder.Desc))
-                        )
-                ))
-        );
+        builder.aggregations("c3_agg", a -> a.terms(t -> t.field("category3Id").size(7)).aggregations("top6", a1 -> a1.topHits(t -> t.size(6).sort(s -> s.field(v -> v.field("hotScore").order(SortOrder.Desc))))));
         SearchRequest request = builder.build();
         System.err.println("当前DSL如下");
         System.out.println(request);
@@ -456,19 +416,16 @@ public class SearchServiceImpl implements SearchService {
                 vo.put("baseCategory3", map.get(bucket.key()));
 
                 // 当前三级分类下的top6
-                List<AlbumInfoIndex> top6 = bucket.aggregations().get("top6").topHits().hits().hits()
-                        .stream()
-                        .map(t -> {
-                            // 不对：错误原因：co.elastic.clients.json.JsonData（Elasticsearch 官方客户端特有类型）→ ❌ 不能直接被 Jackson 处理！
-                            // return objectMapper.convertValue(t.source().toString(), AlbumInfoIndex.class); //
+                List<AlbumInfoIndex> top6 = bucket.aggregations().get("top6").topHits().hits().hits().stream().map(t -> {
+                    // 不对：错误原因：co.elastic.clients.json.JsonData（Elasticsearch 官方客户端特有类型）→ ❌ 不能直接被 Jackson 处理！
+                    // return objectMapper.convertValue(t.source().toString(), AlbumInfoIndex.class); //
 //                            Map<String,  Object> tmap = t.source().to(Map.class);
 //                            return objectMapper.convertValue(tmap, AlbumInfoIndex.class);
 
-                            String json = t.source().toString();
-                            AlbumInfoIndex albumInfoIndex = JSON.parseObject(json, AlbumInfoIndex.class);
-                            return albumInfoIndex;
-                        })
-                        .toList();
+                    String json = t.source().toString();
+                    AlbumInfoIndex albumInfoIndex = JSON.parseObject(json, AlbumInfoIndex.class);
+                    return albumInfoIndex;
+                }).toList();
 
 
                 vo.put("list", top6);
@@ -555,15 +512,9 @@ public class SearchServiceImpl implements SearchService {
 
         //  构建包含多个 FieldSuggester 的 Map
         Map<String, FieldSuggester> suggesters = new HashMap<>();
-        FieldSuggester fieldSuggest1 = FieldSuggester.of(f -> f.prefix(keyword).completion(
-                c -> c.field("keywordPinyin").skipDuplicates(true)
-        ));
-        FieldSuggester fieldSuggest2 = FieldSuggester.of(f -> f.prefix(keyword).completion(
-                c -> c.field("keyword").skipDuplicates(true)
-        ));
-        FieldSuggester fieldSuggest3 = FieldSuggester.of(f -> f.prefix(keyword).completion(
-                c -> c.field("keywordSequence").skipDuplicates(true)
-        ));
+        FieldSuggester fieldSuggest1 = FieldSuggester.of(f -> f.prefix(keyword).completion(c -> c.field("keywordPinyin").skipDuplicates(true)));
+        FieldSuggester fieldSuggest2 = FieldSuggester.of(f -> f.prefix(keyword).completion(c -> c.field("keyword").skipDuplicates(true)));
+        FieldSuggester fieldSuggest3 = FieldSuggester.of(f -> f.prefix(keyword).completion(c -> c.field("keywordSequence").skipDuplicates(true)));
         suggesters.put("KeyWordPingYingSuggst", fieldSuggest1);
         suggesters.put("KeyWordSuggst", fieldSuggest2);
         suggesters.put("KeyWordLettersSuggst", fieldSuggest3);
@@ -599,9 +550,7 @@ public class SearchServiceImpl implements SearchService {
             SearchRequest.Builder builder1 = new SearchRequest.Builder();
             builder1.index(ALBUM_INDEX_NAME);
             builder1.query(q -> q.match(m -> m.field("albumTitle").query(keyword)));
-            builder1.source(s -> s.filter(
-                    f -> f.includes("albumTitle")
-            ));
+            builder1.source(s -> s.filter(f -> f.includes("albumTitle")));
 
             SearchRequest request1 = builder1.build();
             System.out.println(request1);
@@ -665,5 +614,103 @@ public class SearchServiceImpl implements SearchService {
         }
         // 4. 专辑信息保存
         albumInfoRepository.save(albumInfoIndex);
+    }
+
+    @Override
+    @SneakyThrows
+    public void updateLatelyAlbumRanking(Integer top) {
+        // 1. 从 es 中 获取所有一级分类下的专辑的五个维度的排序信息
+        // 1.1 先远程调用专辑服务，获取所有一级分类信息
+        List<BaseCategory1> c1List = albumFeignClient.findAllCategory1().getData();
+        Assert.notNull(c1List, "updateLatelyAlbumRanking : 一级分类信息不存在");
+
+        // 1.2 遍历一级分类 + 排序维度获取专辑排行榜信息
+        String[] sortFields = new String[]{"hotScore", "playStatNum", "subscribeStatNum", "buyStatNum", "commentStatNum"};
+        // HashMap<String, HashMap<String, List<AlbumInfoIndex>>> result = new HashMap<>(); // 专辑排行榜信息
+        for (BaseCategory1 baseCategory1 : c1List) {
+            for (String sortField : sortFields) {
+                // 1.2.1 构建 DSL
+                SearchRequest.Builder builder = new SearchRequest.Builder();
+                builder.index(ALBUM_INDEX_NAME);
+                builder.query(q -> q.term(t -> t.field("category1Id").value(baseCategory1.getId())));
+                builder.sort(s -> s.field(f -> f.field(sortField).order(SortOrder.Desc))); // 降序排序
+                builder.size(top);
+                builder.source(s -> s.filter(f -> f.excludes(
+                        "attributeValueIndexList",
+                        "hotScore",
+                        "commentStatNum",
+                        "buyStatNum",
+                        "subscribeStatNum",
+                        "announcerName"
+                )));
+
+                // 1.2.2 执行查询
+                SearchRequest request = builder.build();
+                SearchResponse<AlbumInfoIndex> search = elasticsearchClient.search(request, AlbumInfoIndex.class);
+
+                List<Hit<AlbumInfoIndex>> hits = search.hits().hits();
+                Assert.notNull(hits, "updateLatelyAlbumRanking : 专辑排行榜信息检索失败");
+                // 2. 解析结果
+                List<AlbumInfoIndex> list = hits
+                        .stream()
+                        .map(Hit::source)
+                        // .toList() // 罪魁祸首！！！！！！！！！
+                        .collect(Collectors.toList());
+
+
+                // 3. 存放到 redis 中
+                // key:分类id， hashkey:排序维度， value:专辑信息
+                String key = RedisConstant.RANKING_KEY_PREFIX + baseCategory1.getId();
+                String hashKey = sortField;
+                // 直接存 list，会由于泛型丢失，无法进行反序列化,
+                redisTemplate.opsForHash().put(key, hashKey, list);
+//                AlbumRankingResult result = new AlbumRankingResult();
+//                result.setList(list);
+//                redisTemplate.opsForHash().put(key, hashKey, result);
+
+            }
+        }
+    }
+
+    /**
+     * 获取不同分类下不同排行维度 TOPN 的数据
+     * @param category1Id
+     * @param dimension
+     * @return {code:, msg:, data:[vo1, vo2 ,vo3]}
+     */
+//    @Override
+//    public List<AlbumInfoIndexVo> getRankingList(Long category1Id, String sortField) {
+//        // 1. 获取 redis 中 key:分类id， hashkey:排序维度， value:专辑信息
+//        String key = RedisConstant.RANKING_KEY_PREFIX + category1Id;
+//        String hashKey = sortField;
+//
+//        List<AlbumInfoIndex> list = (List<AlbumInfoIndex>) redisTemplate.opsForHash().get(key, hashKey);
+//        return list.stream()
+//                .map(t -> {
+//                    return BeanUtil.copyProperties(t, AlbumInfoIndexVo.class);
+//                })
+//                .toList();
+//    }
+    @Override
+    public List<AlbumInfoIndexVo> getRankingList(Long category1Id, String dimension) {
+        //定义Redis中小时榜hash的Key
+        String redisKey = RedisConstant.RANKING_KEY_PREFIX + category1Id;
+        String field = dimension;
+        //创建绑定hash对象方便操作hash结构
+        BoundHashOperations<String, String, List<AlbumInfoIndex>> hashOps = redisTemplate.boundHashOps(redisKey);
+        Boolean flag = hashOps.hasKey(field);
+        if (flag) {
+
+            List<AlbumInfoIndex> list = hashOps.get(field);
+            // 3. 读取时
+            // AlbumRankingResult result = (AlbumRankingResult) hashOps.get(field);
+            // List<AlbumInfoIndex> list = result.getList();
+            List<AlbumInfoIndexVo> albumInfoIndexVoList = list
+                    .stream()
+                    .map(albumInfoIndex -> BeanUtil.copyProperties(albumInfoIndex, AlbumInfoIndexVo.class))
+                    .collect(Collectors.toList());
+            return albumInfoIndexVoList;
+        }
+        return null;
     }
 }

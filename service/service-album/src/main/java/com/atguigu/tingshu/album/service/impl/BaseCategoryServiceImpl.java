@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.atguigu.tingshu.album.mapper.*;
 import com.atguigu.tingshu.album.service.BaseCategoryService;
+import com.atguigu.tingshu.common.cache.RedisCache;
 import com.atguigu.tingshu.model.album.BaseAttribute;
 import com.atguigu.tingshu.model.album.BaseCategory1;
 import com.atguigu.tingshu.model.album.BaseCategory3;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +42,7 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     private BaseAttributeMapper baseAttributeMapper;
 
     @Override
+    @RedisCache(prefix = "album:categoryList:", timeout = 3600 , timeunit = TimeUnit.SECONDS)
     public List<JSONObject> getBaseCategoryList() {
         // 1. 去视图中查询全部三级分类
         List<BaseCategoryView> list = baseCategoryViewMapper.selectList(null);
@@ -99,7 +102,13 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
         return result;
     }
 
+    /**
+     * 根据一级分类id获取所有的标签以及标签对应的标签值
+     * @param category1Id
+     * @return List<BaseAttribute>
+     */
     @Override
+    @RedisCache(prefix = "album:attributeList:", timeout = 3600 , timeunit = TimeUnit.SECONDS)
     public List<BaseAttribute> getBaseAttributeListByCategory1Id(Long category1Id) {
         // 1. 将表 base_attribute 与 base_attribute_value 关联
         return baseAttributeMapper.getBaseAttributeListByCategory1Id(category1Id);
@@ -111,6 +120,7 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
      * @return
      */
     @Override
+    @RedisCache(prefix = "album:categoryView:", timeout = 3600 , timeunit = TimeUnit.SECONDS)
     public BaseCategoryView getCategoryView(Long category3Id) {
 
         LambdaQueryWrapper<BaseCategoryView> wr = new LambdaQueryWrapper<>();
@@ -126,6 +136,7 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
      */
     @Override
     @Transactional
+    @RedisCache(prefix = "album:top7BaseCategory3:", timeout = 3600 , timeunit = TimeUnit.SECONDS)
     public List<BaseCategory3> findTopBaseCategory3(Long category1Id) {
         LambdaQueryWrapper<BaseCategoryView> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(BaseCategoryView::getCategory1Id, category1Id);
@@ -159,7 +170,9 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
      * @param category1Id
      * @return
      */
+
     @Override
+    @RedisCache(prefix = "album:category2And3ListBy1Id:", timeout = 3600 , timeunit = TimeUnit.SECONDS)
     public JSONObject getBaseCategoryListByCategory1Id(Long category1Id) {
 
         // 1. 查询1级分类下的所有二级分类

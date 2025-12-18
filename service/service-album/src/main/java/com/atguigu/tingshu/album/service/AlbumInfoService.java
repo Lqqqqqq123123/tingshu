@@ -40,12 +40,6 @@ public interface AlbumInfoService extends IService<AlbumInfo> {
      */
     void removeAlbumInfo(Long id);
 
-    /**
-     * 根据 id 查询专辑信息
-     * @param id
-     * @return
-     */
-    AlbumInfo getAlbumInfo(Long id);
 
     /**
      * 修改专辑信息
@@ -61,4 +55,19 @@ public interface AlbumInfoService extends IService<AlbumInfo> {
      * @return
      */
     AlbumStatVo getAlbumStatVo(Long albumId);
+
+
+    /**
+     * 根据 id 从数据库查询专辑信息
+     * @param id 专辑id
+     * @return 专辑信息
+     */
+    AlbumInfo getAlbumInfoFromDB(Long id);
+
+    /**
+     * 根据 id 查询专辑信息，优先从 redis 中查询，如果 redis 中没有，才去调用 getAlbumInfoFromDB 从 数据库查询并写入到 redis中
+     * @param id 专辑 id
+     * @return 专辑信息
+     */
+    AlbumInfo getAlbumInfo(Long id);
 }

@@ -8,6 +8,7 @@ import com.atguigu.tingshu.album.mapper.TrackStatMapper;
 import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.album.service.TrackInfoService;
 import com.atguigu.tingshu.album.service.VodService;
+import com.atguigu.tingshu.common.cache.RedisCache;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.model.album.AlbumInfo;
 import com.atguigu.tingshu.model.album.AlbumStat;
@@ -32,6 +33,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -386,6 +388,7 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
      * @return TrackStatVo
      */
     @Override
+    @RedisCache(prefix = "album:trackStatVo:", timeout = 3600 , timeunit = TimeUnit.SECONDS)
     public TrackStatVo getTrackStatVo(Long trackId) {
         return trackInfoMapper.getTrackStatVo(trackId);
     }

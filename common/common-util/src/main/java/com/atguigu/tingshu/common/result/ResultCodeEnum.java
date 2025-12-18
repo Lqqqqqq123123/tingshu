@@ -46,8 +46,10 @@ public enum ResultCodeEnum {
 
     REPEAT_BUY_ERROR(231, "已经购买过该专辑"),
     IMAGE_AUDIT_FAIL(232, "图片内容审核失败"),
-    IMAGE_AUDIT_REVIEW(233, "图片内容可能存在问题，需要人工复审")
+    IMAGE_AUDIT_REVIEW(233, "图片内容可能存在问题，需要人工复审"),
 
+
+    DATA_QUERY_ERROR(234, "数据查询失败")
     ;
 
     private Integer code;
