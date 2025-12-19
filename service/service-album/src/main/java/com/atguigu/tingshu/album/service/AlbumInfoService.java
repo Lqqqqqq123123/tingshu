@@ -70,4 +70,9 @@ public interface AlbumInfoService extends IService<AlbumInfo> {
      * @return 专辑信息
      */
     AlbumInfo getAlbumInfo(Long id);
+
+    /**
+     * 批量将数据库存在的过审的专辑存到布隆过滤器中
+     */
+    public void batchUpperToBloom();
 }

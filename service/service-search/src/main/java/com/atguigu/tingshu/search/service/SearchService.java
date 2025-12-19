@@ -34,6 +34,7 @@ public interface SearchService {
      */
     public void batchUpperAlbum();
 
+
     /**
      * 站内搜索
      * @param albumIndexQuery

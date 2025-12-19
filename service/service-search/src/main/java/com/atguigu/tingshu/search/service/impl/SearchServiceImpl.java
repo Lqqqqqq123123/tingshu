@@ -33,6 +33,8 @@ import com.atguigu.tingshu.vo.search.AlbumUpdateStatVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.elasticsearch.core.suggest.Completion;
@@ -78,6 +80,9 @@ public class SearchServiceImpl implements SearchService {
     private static final String SUGGEST_INDEX_NAME = "suggestinfo";
     @Autowired
     private WebClient.Builder builder;
+
+    @Autowired
+    private RedissonClient redissonClient;
 
     /**
      * 将指定专辑上架到索引库
@@ -142,6 +147,10 @@ public class SearchServiceImpl implements SearchService {
         // 3. 保存专辑标题到提示词索引库
         this.saveSuggestIndex(po);
 
+        // 4. todo：添加到布隆过滤器中
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(RedisConstant.ALBUM_BLOOM_FILTER);
+        bloomFilter.add(albumId);
+
     }
 
 
@@ -161,7 +170,8 @@ public class SearchServiceImpl implements SearchService {
 
 
     /**
-     * 批量上架专辑(不严谨版本，也就是直接遍历  1-maxid)
+     * 批量上架专辑(不严谨版本，也就是直接遍历  1-maxid)，
+     * // todo：这里要修改为只上传审核通过的专辑
      */
 
     @Override
@@ -178,6 +188,8 @@ public class SearchServiceImpl implements SearchService {
         }
 
     }
+
+
 
 
     /**
@@ -439,7 +451,6 @@ public class SearchServiceImpl implements SearchService {
 
     /**
      * 保存建议索引
-     *
      * @param po
      */
     @Override

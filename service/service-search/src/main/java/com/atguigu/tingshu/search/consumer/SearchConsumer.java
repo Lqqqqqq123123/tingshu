@@ -33,7 +33,7 @@ public class SearchConsumer {
     @Autowired
     private RedisTemplate redisTemplate;
     /**
-     * 接收到消息，然后调用专辑服务，将专辑信息保存到ES中
+     * 接收到专辑审核铜鼓哟消息，然后调用搜索服务，将专辑信息保存到ES中，同时将该信息添加到布隆过滤器
      * @param id
      */
     @SneakyThrows

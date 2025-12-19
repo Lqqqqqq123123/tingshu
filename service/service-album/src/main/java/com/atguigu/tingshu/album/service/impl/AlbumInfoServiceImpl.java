@@ -7,6 +7,7 @@ import com.atguigu.tingshu.album.service.AlbumAttributeValueService;
 import com.atguigu.tingshu.album.service.AlbumInfoService;
 import com.atguigu.tingshu.album.service.AuditService;
 import com.atguigu.tingshu.common.cache.RedisCache;
+import com.atguigu.tingshu.common.constant.RedisConstant;
 import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
 import com.atguigu.tingshu.common.rabbit.service.RabbitService;
@@ -22,6 +23,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -30,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.atguigu.tingshu.common.constant.SystemConstant.ALBUM_PAY_TYPE_REQUIRE;
 import static com.atguigu.tingshu.common.constant.SystemConstant.ALBUM_PAY_TYPE_VIPFREE;
@@ -222,6 +225,26 @@ public class AlbumInfoServiceImpl extends ServiceImpl<AlbumInfoMapper, AlbumInfo
 //            return this.getAlbumInfoFromDB(id);
 //        }
         return this.getAlbumInfoFromDB(id);
+    }
+
+    /**
+     * 批量将已经过审专辑 id 插入到布隆过滤器中
+     */
+    @Override
+    public void batchUpperToBloom() {
+        // 1. 获取所有专辑 id
+        LambdaQueryWrapper<AlbumInfo> wr = new LambdaQueryWrapper<>();
+        wr.eq(AlbumInfo::getStatus, SystemConstant.ALBUM_STATUS_PASS);
+        List<Long> list = albumInfoMapper.selectList(wr).stream().map(AlbumInfo::getId).collect(Collectors.toList());
+
+        // 2. 批量插入到布隆过滤器中
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(RedisConstant.ALBUM_BLOOM_FILTER);
+
+        for (Long id : list) {
+            bloomFilter.add(id);
+        }
+
+        log.info("liutianba: 批量将专辑 id 插入到布隆过滤器中完成");
     }
 
     /**
