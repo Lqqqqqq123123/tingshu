@@ -56,11 +56,11 @@ public class ItemServiceImpl implements ItemService {
         // 2. 获取专辑信息
         CompletableFuture<AlbumInfo> task1 = CompletableFuture.supplyAsync(() -> {
             // 2.1 todo:通过布隆过滤器来判断专辑是否存在，用来解决缓存穿透问题
-            boolean contains = bloomFilter.contains(albumId);
-            if(!contains){
-                log.info("liutianba7：专辑{}不存在于数据库", albumId);
-                throw new BusinessException(404, "专辑不存在");
-            }
+//            boolean contains = bloomFilter.contains(albumId);
+//            if(!contains){
+//                log.info("liutianba7：专辑{}不存在于数据库", albumId);
+//                throw new BusinessException(404, "专辑不存在");
+//            }
             AlbumInfo albumInfo = albumFeignClient.getAlbumInfo(albumId).getData();
             Assert.notNull(albumInfo, "getItem : 专辑信息不存在"); // 因为布隆过滤器可能存在误判，所以这里要判断一下
             item.put("albumInfo", albumInfo);

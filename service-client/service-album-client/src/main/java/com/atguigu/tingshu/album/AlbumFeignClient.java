@@ -2,10 +2,7 @@ package com.atguigu.tingshu.album;
 
 import com.atguigu.tingshu.album.impl.AlbumDegradeFeignClient;
 import com.atguigu.tingshu.common.result.Result;
-import com.atguigu.tingshu.model.album.AlbumInfo;
-import com.atguigu.tingshu.model.album.BaseCategory1;
-import com.atguigu.tingshu.model.album.BaseCategory3;
-import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.atguigu.tingshu.model.album.*;
 import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -61,4 +58,14 @@ public interface AlbumFeignClient {
      */
     @GetMapping("/category/findAllCategory1")
     public Result<List<BaseCategory1>> findAllCategory1();
+
+
+    /**
+     * 查询用户未购买声音列表：内部接口，供订单服务调用
+     * @param trackId 声音ID
+     * @param trackCount 当前用户要购买的声音数量
+     * @return List<TrackInfo> 从trackid的序号开始，获取trackCount个用户未购买的声音
+     */
+    @GetMapping("/trackInfo/findPaidTrackInfoList/{trackId}/{trackCount}")
+    public Result<List<TrackInfo>> findWaitBuyTrackInfoList(@PathVariable Long trackId, @PathVariable Integer trackCount);
 }

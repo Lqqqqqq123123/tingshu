@@ -28,11 +28,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.util.Date;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -448,5 +448,114 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
             );
         }
 
+    }
+
+
+    /**
+     * 基于用户选择的声音，动态的获取为购买的声音数量，得到声音购买列表
+     * @param trackId 当前选择的声音ID
+     * @param userId 当前用户ID
+     * @return List<Map<String, Object>> [{name:"本集", price:"0.1", trackcount:1}, {name:"后10集", price:"1", trackcount:10}，{name:"全集", price:"4.3", trackcount:43}]
+     */
+    @Override
+    public List<Map<String, Object>> findUserTrackPaidList(Long trackId, Long userId) {
+        // 1. 先根据声音ID查询当前声音信息，拿到序号以及专辑ID
+        TrackInfo curTrackInfo = trackInfoMapper.selectById(trackId);
+        Assert.notNull(curTrackInfo, "当前声音不存在");
+        Long albumId = curTrackInfo.getAlbumId();
+        Integer orderNum = curTrackInfo.getOrderNum();
+
+        // 1.1 获取专辑信息，从而拿到声音的单价信息
+        AlbumInfo albumInfo = albumInfoMapper.selectById(albumId);
+        Assert.notNull(albumInfo, "专辑信息不存在");
+        BigDecimal price = albumInfo.getPrice(); // 专辑单价
+
+        // 2. 根据专辑id + 用户id，查询序号大于当前序号的声音
+        LambdaQueryWrapper<TrackInfo> wr = new LambdaQueryWrapper<>();
+        wr.eq(TrackInfo::getAlbumId, albumId).ge(TrackInfo::getOrderNum, orderNum);
+        List<TrackInfo> list = trackInfoMapper.selectList(wr);
+
+        // 3. 远程调用user微服务，从而获得当前用户已经购买的该专辑下的声音理解
+        List<Long> paidTrackIdList = userFeignClient.findUserPaidTrackList(albumId).getData();
+        // 4. 再从步骤2中查询结果中，过滤掉已经购买的声音
+        if(paidTrackIdList != null){
+            list = list.stream()
+                    .filter(t -> !paidTrackIdList.contains(t.getId()))
+                    .toList();
+        }
+
+        // 5. 得到所选的声音后面所有每购买的声音信息
+        int size = list.size();
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        // 5.1 10集10集来
+        // 策略一，无论size为多少，最起码有本集
+        result.add(createPlanMap("本集", 1, price));
+        // 策略二，10，20，30，..，直到超过size
+        for(int i = 10; i < size; i += 10){
+            result.add(createPlanMap("后" + i + "集", i, new BigDecimal(i).multiply(price)));
+        }
+
+        // 策略三，只要未购买总数 > 1，就显示“全集” ---
+        if(size > 1){
+            // 检查最后一个加入的选项是否和全集集数一样，不一样才添加，避免重复
+            Map<String, Object> lastMap = result.get(result.size() - 1);
+            if ((int)lastMap.get("trackCount") != size) {
+                result.add(createPlanMap("全集（后" + size + "集）", size, price.multiply(new BigDecimal(size))));
+            } else {
+                // 如果最后一个刚好是全集，把它的名字改成“全集”更友好
+                lastMap.put("name", "全集（后" + size + "集）");
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 查询用户未购买声音列表：内部接口，供订单服务调用
+     * @param trackId 声音ID
+     * @param userId 用户ID
+     * @param trackCount 当前用户要购买的声音数量
+     * @return List<TrackInfo> 从trackid的序号开始，获取trackCount个用户未购买的声音
+     */
+    @Override
+    public List<TrackInfo> findWaitBuyTrackInfoList(Long userId, Long trackId, Integer trackCount) {
+        // 1. 先拿到当前声音信息
+        TrackInfo curTrackInfo = trackInfoMapper.selectById(trackId);
+        Assert.notNull(curTrackInfo, "当前声音不存在");
+
+        // 2. 拿到专辑ID，当前声音的序号
+        Long albumId = curTrackInfo.getAlbumId();
+        Integer orderNum = curTrackInfo.getOrderNum();
+
+
+        // 3. 根据专辑ID，查询序号大于等于当前序号的声音信息
+        LambdaUpdateWrapper<TrackInfo> wr = new LambdaUpdateWrapper<>();
+        wr.eq(TrackInfo::getAlbumId, albumId).ge(TrackInfo::getOrderNum, orderNum);
+        List<TrackInfo> list = trackInfoMapper.selectList(wr);
+
+        // 4. 拿到当前用户已经购买的声音ID列表
+        List<Long> paidTrackIdList = userFeignClient.findUserPaidTrackList(albumId).getData();
+
+        // 5. 过滤掉已经购买的声音
+        if(paidTrackIdList != null){
+            list = list.stream()
+                    .filter(t -> !paidTrackIdList.contains(t.getId()))
+                    .toList();
+        }
+        // 6. 返回 trackCount 个声音信息
+        return list.stream()
+                .limit(trackCount)
+                .toList();
+    }
+
+    /**
+     * 提取一个辅助方法，减少重复代码
+     */
+    private Map<String, Object> createPlanMap(String name, Integer count, BigDecimal price) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("name", name);
+        map.put("trackCount", count);
+        map.put("price", price);
+        return map;
     }
 }

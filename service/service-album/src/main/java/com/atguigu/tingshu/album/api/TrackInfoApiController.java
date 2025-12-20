@@ -21,6 +21,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -170,5 +171,36 @@ public class TrackInfoApiController {
         TrackStatVo trackStatVo = trackInfoService.getTrackStatVo(trackId);
         return Result.ok(trackStatVo);
     }
+
+    /**
+     * 基于用户选择的声音，动态的获取为购买的声音数量，得到声音购买列表
+     * @param trackId
+     * @return List<Map<String, Object>>
+     */
+    @Login
+    @Operation(summary = "基于用户选择的声音，动态的获取为购买的声音数量，得到声音购买列表")
+    @GetMapping("/trackInfo/findUserTrackPaidList/{trackId}")
+    public Result<List<Map<String, Object>>> findUserTrackPaidList(@PathVariable Long trackId) {
+        Long userId = AuthContextHolder.getUserId();
+        List<Map<String, Object>> list = trackInfoService.findUserTrackPaidList(trackId, userId);
+        return Result.ok(list);
+    }
+
+    /**
+     * 查询用户未购买声音列表：内部接口，供订单服务调用
+     * @param trackId 声音ID
+     * @param trackCount 当前用户要购买的声音数量
+     * @return List<TrackInfo> 从trackid的序号开始，获取trackCount个用户未购买的声音
+     */
+    @Login
+    @Operation(summary = "查询用户未购买声音列表")
+    @GetMapping("/trackInfo/findPaidTrackInfoList/{trackId}/{trackCount}")
+    public Result<List<TrackInfo>> findWaitBuyTrackInfoList(@PathVariable Long trackId, @PathVariable Integer trackCount) {
+        Long userId = AuthContextHolder.getUserId();
+        List<TrackInfo> list = trackInfoService.findWaitBuyTrackInfoList(userId, trackId, trackCount);
+        return Result.ok(list);
+    }
+
+
 }
 
