@@ -55,6 +55,12 @@ public class AlbumDegradeFeignClient implements AlbumFeignClient {
         log.info("[远程调用专辑服务]的 [findWaitBuyTrackInfoList] 接口出现异常，降级处理");
         return null;
     }
+
+    @Override
+    public Result<TrackInfo> getTrackInfo(Long id) {
+        log.info("[远程调用专辑服务]的 [getTrackInfo] 接口出现异常，降级处理");
+        return null;
+    }
 }
 
 

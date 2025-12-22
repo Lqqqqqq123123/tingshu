@@ -4,6 +4,7 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.user.VipServiceConfig;
 import com.atguigu.tingshu.user.client.impl.UserDegradeFeignClient;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -70,4 +71,12 @@ public interface UserFeignClient {
      */
     @GetMapping("/userInfo/findUserPaidTrackList/{albumId}")
     public Result<List<Long>> findUserPaidTrackList(@PathVariable Long albumId);
+
+    /**
+     * 用户支付成功后，虚拟物品发货 内部接口：订单服务调用, 不能加 login 注解，因为还有一种支付方式：微信，当支付成功后，微信会回调我们的服务器，不携带令牌
+     * @param vo 虚拟物品信息
+     * @return 虚拟物品发货结果
+     */
+    @PostMapping("/userInfo/savePaidRecord")
+    public Result savePaidRecord(@RequestBody UserPaidRecordVo vo);
 }

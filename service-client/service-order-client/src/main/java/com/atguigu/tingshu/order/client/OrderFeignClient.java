@@ -8,10 +8,9 @@ import org.springframework.cloud.openfeign.FeignClient;
  * 订单模块远程调用API接口
  * </p>
  *
- * @author atguigu
+ * @author liutianba7
  */
 @FeignClient(value = "service-order", fallback = OrderDegradeFeignClient.class)
 public interface OrderFeignClient {
-
 
 }

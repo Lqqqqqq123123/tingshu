@@ -5,6 +5,7 @@ import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.user.service.UserInfoService;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +81,18 @@ public class UserInfoApiController {
         Long userId = AuthContextHolder.getUserId();
         List<Long> list = userInfoService.findUserPaidTrackList(userId, albumId);
         return Result.ok(list);
+    }
+
+    /**
+     * 用户支付成功后，虚拟物品发货 内部接口：订单服务调用, 不能加 login 注解，因为还有一种支付方式：微信，当支付成功后，微信会回调我们的服务器，不携带令牌
+     * @param vo 虚拟物品信息
+     * @return 虚拟物品发货结果
+     */
+    @Operation(summary = "用户支付成功后，虚拟物品发货")
+    @PostMapping("/userInfo/savePaidRecord")
+    public Result savePaidRecord(@RequestBody UserPaidRecordVo vo) {
+        userInfoService.savePaidRecord(vo);
+        return Result.ok();
     }
 
 }

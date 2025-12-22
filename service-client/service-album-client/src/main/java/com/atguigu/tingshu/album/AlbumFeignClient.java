@@ -68,4 +68,13 @@ public interface AlbumFeignClient {
      */
     @GetMapping("/trackInfo/findPaidTrackInfoList/{trackId}/{trackCount}")
     public Result<List<TrackInfo>> findWaitBuyTrackInfoList(@PathVariable Long trackId, @PathVariable Integer trackCount);
+
+    /**
+     * 根据声音ID查询声音信息
+     * @param id 声音ID
+     * @return 声音信息
+     */
+    @GetMapping("/trackInfo/getTrackInfo/{id}")
+    // 这里直接掉的 mp 的服务层方法，所以缓存注解只能加到改控制器上
+    public Result<TrackInfo> getTrackInfo(@PathVariable Long id);
 }

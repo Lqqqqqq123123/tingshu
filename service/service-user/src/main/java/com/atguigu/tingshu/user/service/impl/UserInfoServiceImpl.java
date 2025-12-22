@@ -7,19 +7,23 @@ import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.IdUtil;
+import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.common.cache.RedisCache;
 import com.atguigu.tingshu.common.constant.RedisConstant;
+import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
 import com.atguigu.tingshu.common.rabbit.service.RabbitService;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
-import com.atguigu.tingshu.model.user.UserInfo;
-import com.atguigu.tingshu.model.user.UserPaidAlbum;
-import com.atguigu.tingshu.model.user.UserPaidTrack;
+import com.atguigu.tingshu.model.album.TrackInfo;
+import com.atguigu.tingshu.model.user.*;
 import com.atguigu.tingshu.user.mapper.UserInfoMapper;
+import com.atguigu.tingshu.user.mapper.UserVipServiceMapper;
 import com.atguigu.tingshu.user.service.UserInfoService;
 import com.atguigu.tingshu.user.service.UserPaidAlbumService;
 import com.atguigu.tingshu.user.service.UserPaidTrackService;
+import com.atguigu.tingshu.user.service.VipServiceConfigService;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +31,10 @@ import me.chanjar.weixin.common.error.WxErrorException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -54,6 +61,15 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     @Autowired
     private UserPaidTrackService userPaidTrackService;
+
+    @Autowired
+    private AlbumFeignClient albumFeignClient;
+
+    @Autowired
+    private UserVipServiceMapper userVipServiceMapper;
+
+    @Autowired
+    private VipServiceConfigService vipServiceConfigService;
 
     /**
      * 实现微信登录
@@ -215,5 +231,108 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
                     .toList();
         }
         return null;
+    }
+
+    /**
+     * 用户支付成功后，虚拟物品发货 内部接口：订单服务调用
+     * @param vo 虚拟物品信息
+     * @return 虚拟物品发货结果
+     */
+    @Override
+    public void savePaidRecord(UserPaidRecordVo vo) {
+        // 1. 去判断当前用户购买的商品类型，从而走不同的逻辑处理
+        String itemType = vo.getItemType();
+        // 1.1 专辑
+        if(SystemConstant.ORDER_ITEM_TYPE_ALBUM.equals(itemType)){
+            // 1.1.1 看看是否已经有了专辑的支付记录
+            LambdaQueryWrapper<UserPaidAlbum> wr = new LambdaQueryWrapper<>();
+            wr.eq(UserPaidAlbum::getOrderNo, vo.getOrderNo()).select(UserPaidAlbum::getId); // 索引覆盖，避免回表查询
+            Long count = userPaidAlbumService.count(wr);
+            if(count > 0){
+                return;
+            }
+            // 1.1.2 保存专辑支付记录
+            UserPaidAlbum paidAlbum = new UserPaidAlbum();
+            paidAlbum.setOrderNo(vo.getOrderNo());
+            paidAlbum.setAlbumId(vo.getItemIdList().get(0));
+            paidAlbum.setUserId(vo.getUserId());
+            userPaidAlbumService.save(paidAlbum);
+        }
+        // 1.2 声音
+        else if(SystemConstant.ORDER_ITEM_TYPE_TRACK.equals(itemType))
+        {
+            // 1.2.1 看看是否已经有了声音的支付记录
+            LambdaQueryWrapper<UserPaidTrack> wr = new LambdaQueryWrapper<>();
+            wr.eq(UserPaidTrack::getOrderNo, vo.getOrderNo()).select(UserPaidTrack::getId); // 索引覆盖，避免回表查询
+            Long count = userPaidTrackService.count(wr);
+            if(count > 0){
+                return;
+            }
+            // 1.2.2 查询当前一条声音的信息，拿到专辑ID
+            TrackInfo data = albumFeignClient.getTrackInfo(vo.getItemIdList().get(0)).getData();
+            Assert.notNull(data, "声音不存在");
+
+            // 1.2.2 批量保存声音支付记录
+            List<UserPaidTrack> list = vo.getItemIdList()
+                    .stream()
+                    .map(itemId -> {
+                        UserPaidTrack paidTrack = new UserPaidTrack();
+                        paidTrack.setOrderNo(vo.getOrderNo());
+                        paidTrack.setTrackId(itemId);
+                        paidTrack.setUserId(vo.getUserId());
+                        paidTrack.setAlbumId(data.getAlbumId());
+                        return paidTrack;
+                    }).toList();
+            userPaidTrackService.saveBatch(list);
+        }
+        // 1.3 会员
+        else if(SystemConstant.ORDER_ITEM_TYPE_VIP.equals(itemType)){
+            // 1.3.1 看看是否已经有了会员的支付记录
+            LambdaQueryWrapper<UserVipService> wr = new LambdaQueryWrapper<>();
+            wr.eq(UserVipService::getOrderNo, vo.getOrderNo()).select(UserVipService::getId);
+            Long count = userVipServiceMapper.selectCount(wr);
+
+            if(count > 0){
+                return ;
+            }
+
+            // 1.3.2 先拿到当前用户信息以及购买的会员套餐信息
+            UserInfo userinfo = this.getById(vo.getUserId());
+            VipServiceConfig vipServiceConfig = vipServiceConfigService.getById(vo.getItemIdList().get(0));
+
+            // 1.3.3 新增会员购买记录
+            UserVipService userVipService = new UserVipService();
+            userVipService.setOrderNo(vo.getOrderNo());
+            userVipService.setUserId(vo.getUserId());
+            // 生效时间:之前如果是会员，且过期时间 > 当前时间，则生效时间是过期时间，否则生效时间是当前时间
+            if(userinfo.getIsVip() == 1 && userinfo.getVipExpireTime().after(new Date())){
+                // 如果是 vip 且 vip 没过期，则生效时间是过期时间
+                // userVipService.setStartTime(DateUtil.offsetDay(userinfo.getVipExpireTime(), 1));
+                userVipService.setStartTime(userinfo.getVipExpireTime());
+            }else{
+                // 如果不是 vip 则生效时间是当前时间
+                userVipService.setStartTime(new Date());
+            }
+
+            // 过期时间：在生效时间的基础上 + 购买的会员套餐的时间
+            Integer serviceMonth = vipServiceConfig.getServiceMonth(); // 服务月数
+            // a. 将 Date 转换为 LocalDateTime (更易于操作)
+            LocalDateTime start = userVipService.getStartTime().toInstant()
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+            // b. 过期时间
+            LocalDateTime end = start.plusMonths(serviceMonth);
+            // c. 将计算后的 LocalDateTime 转回 Date
+            Date expireTime = Date.from(end.atZone(ZoneId.systemDefault()).toInstant());
+            userVipService.setExpireTime(expireTime);
+
+            // d. 将会员购买信息保存至数据库
+            userVipServiceMapper.insert(userVipService);
+
+            // 1.3.4 更新用户信息
+            userinfo.setIsVip(1);
+            userinfo.setVipExpireTime(expireTime);
+            this.updateById(userinfo);
+        }
     }
 }

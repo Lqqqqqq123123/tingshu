@@ -10,10 +10,15 @@ import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
+/**
+ * 签名工具类
+ * @create 2025/12/19 18:08
+ * @author liutianba7
+ */
 @Slf4j
 public class SignHelper {
 
-    private static String signKey = "atguigu123";
+    private static String signKey = "liutianba7";
     /**
      * 验签方法
      * @param parameterMap

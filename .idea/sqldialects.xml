@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/service/service-account/src/main/resources/mapper/UserAccountMapper.xml" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/service/service-album/src/main/resources/mapper/AlbumInfoMapper.xml" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/service/service-album/src/main/resources/mapper/BaseAttributeMapper.xml" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/service/service-album/src/main/resources/mapper/TrackInfoMapper.xml" dialect="GenericSQL" />

@@ -4,12 +4,11 @@ import com.atguigu.tingshu.account.service.UserAccountService;
 import com.atguigu.tingshu.common.login.Login;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
+import com.atguigu.tingshu.vo.account.AccountDeductVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 
@@ -38,6 +37,19 @@ public class UserAccountApiController {
         BigDecimal availableAmount = userAccountService.getAvailableAmount(userId);
 
         return Result.ok(availableAmount);
+    }
+
+    /**
+     * 根据传入的参数 AccountDeductVo 扣减用户余额 + 记录操作日志 内部接口：订单服务调用
+     * @param vo 扣减参数
+     * @return 扣减结果
+     */
+    @Operation(summary = "根据传入的参数 AccountDeductVo 扣减用户余额 + 记录操作日志")
+    @PostMapping("/userAccount/checkAndDeduct")
+    public Result CheckAndDeduct (@RequestBody AccountDeductVo vo)
+    {
+        userAccountService.checkAndDeduct(vo);
+        return Result.ok();
     }
 }
 

@@ -89,7 +89,7 @@ public class TrackInfoApiController {
     }
 
     /**
-     * 根据声音ID查询声音信息
+     * 根据声音ID查询声音信息：即使内部接口，也是外部接口，供用户微服务使用
      *
      * @param id
      * @return

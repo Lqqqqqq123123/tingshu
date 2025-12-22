@@ -2,6 +2,7 @@ package com.atguigu.tingshu.user.service;
 
 import com.atguigu.tingshu.model.user.UserInfo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
+import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.extension.service.IService;
 import me.chanjar.weixin.common.error.WxErrorException;
 
@@ -56,4 +57,11 @@ public interface UserInfoService extends IService<UserInfo> {
      * @return 在该专辑下已经购买的声音ID列表
      */
     List<Long> findUserPaidTrackList(Long userId, Long albumId);
+
+    /**
+     * 用户支付成功后，虚拟物品发货 内部接口：订单服务调用
+     * @param vo 虚拟物品信息
+     * @return 虚拟物品发货结果
+     */
+    void savePaidRecord(UserPaidRecordVo vo);
 }

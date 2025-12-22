@@ -5,6 +5,8 @@ import com.atguigu.tingshu.vo.order.OrderInfoVo;
 import com.atguigu.tingshu.vo.order.TradeVo;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.Map;
+
 public interface OrderInfoService extends IService<OrderInfo> {
 
     /**
@@ -14,4 +16,27 @@ public interface OrderInfoService extends IService<OrderInfo> {
      * @return 订单VO信息
      */
     OrderInfoVo trade(TradeVo tradeVo, Long userId);
+
+    /**
+     * 提交订单
+     * @param vo 订单信息
+     * @param userId 当前用户ID
+     * @return
+     */
+    Map<String, String> submitOrder(OrderInfoVo vo, Long userId);
+
+    /**
+     * 保存订单信息的方法：
+     * @param vo 订单信息
+     * @param userId 用户ID
+     * @return 保存后的订单信息
+     */
+    OrderInfo saveOrderInfo(OrderInfoVo vo, Long userId);
+
+    /**
+     * 根据订单ID查询订单信息
+     * @param orderId 订单ID
+     * @return 订单信息
+     */
+    OrderInfo getOrderInfo(String orderId);
 }
