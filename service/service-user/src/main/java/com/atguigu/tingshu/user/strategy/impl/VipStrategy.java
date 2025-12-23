@@ -11,6 +11,7 @@ import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ public class VipStrategy implements DeliveryStrategy {
     @Autowired
     private VipServiceConfigService vipServiceConfigService;
     @Autowired
+    @Lazy
     private UserInfoService userInfoService;
     @Override
     public void delivery(UserPaidRecordVo vo) {

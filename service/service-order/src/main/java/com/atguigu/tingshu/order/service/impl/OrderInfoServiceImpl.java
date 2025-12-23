@@ -31,6 +31,7 @@ import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import io.seata.spring.annotation.GlobalTransactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -262,12 +263,14 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     }
 
     /**
-     * 提交订单 todo:采用策略者模式来优化代码 实现分布式事务 cp 模式
+     * 提交订单 todo:采用策略者模式来优化代码
+     * 通过 seata 实现分布式事务 cp 模式
      * @param vo 订单信息
      * @param userId 当前用户ID
      * @return orderNo:订单号
      */
     @Override
+    @GlobalTransactional(rollbackFor = Exception.class, timeoutMills = 300000) // 5分钟，便于调试
     public Map<String, String> submitOrder(OrderInfoVo vo, Long userId) {
         // 1. 验证订单是否重复提交，采用 lua 脚本，保证判断和删除的原子性
         // 1.1 拿到当前订单的流水号
@@ -331,6 +334,8 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
                 throw new BusinessException(resp1.getCode(), resp1.getMessage());
             }
 
+            // todo: seata 测试
+            // int i = 1 / 0;
 
         }
         // 微信支付
@@ -416,4 +421,6 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
 
         return orderInfo;
     }
+
+
 }
