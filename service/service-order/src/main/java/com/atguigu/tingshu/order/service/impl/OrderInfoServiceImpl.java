@@ -71,7 +71,7 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
 
     /**
      * 三种商品（VIP会员、专辑、声音）订单结算,渲染订单结算页面
-     *
+     * todo:采用策略者模式来优化代码
      * @param userId  当前用户ID
      * @param tradeVo (购买项目类型、购买项目ID、声音数量)
      * @return 订单VO信息
@@ -262,10 +262,10 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     }
 
     /**
-     * 提交订单
+     * 提交订单 todo:采用策略者模式来优化代码 实现分布式事务 cp 模式
      * @param vo 订单信息
      * @param userId 当前用户ID
-     * @return
+     * @return orderNo:订单号
      */
     @Override
     public Map<String, String> submitOrder(OrderInfoVo vo, Long userId) {
