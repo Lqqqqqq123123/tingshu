@@ -66,4 +66,22 @@ public class OrderInfo extends BaseEntity {
 	@TableField(exist = false)
 	private String payWayName;
 
+    public String getPayWayName() {
+        return switch (payWay) {
+            case "1101" -> "微信";
+            case "1102" -> "支付宝";
+            case "1103" -> "账户余额";
+            default -> null;
+        };
+    }
+
+    public String getOrderStatusName() {
+        return switch(orderStatus){
+            case "0901" -> "未支付";
+            case "0902" -> "已支付";
+            case "0903" -> "已取消";
+            default -> null;
+        };
+    }
+
 }

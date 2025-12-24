@@ -4,7 +4,45 @@
 
 <mapper namespace="com.atguigu.tingshu.order.mapper.OrderInfoMapper">
 
+    <resultMap id="orderInfoResultMap" type="com.atguigu.tingshu.model.order.OrderInfo" autoMapping="true">
+        <id column="id" property="id"></id>
+<!--        <collection property="orderDetailList" ofType="com.atguigu.tingshu.model.order.OrderDetail" autoMapping="true">-->
+<!--            <id column="order_detail_id" property="id"></id>-->
+<!--        </collection>-->
+        <collection property="orderDetailList" column="id" select ="selectDetailsByOrderId"></collection>
+    </resultMap>
+
+    <select id="selectDetailsByOrderId" resultType="com.atguigu.tingshu.model.order.OrderDetail">
+        SELECT * FROM order_detail WHERE order_id = #{id} AND is_deleted = 0
+    </select>
+
+    <select id="getOrderByPage" resultMap="orderInfoResultMap">
+        SELECT * FROM order_info
+        WHERE user_id = #{userId} AND is_deleted = 0
+        ORDER BY id DESC
+    </select>
 
 
+<!--    <select id="getOrderByPage" resultMap="orderInfoResultMap">-->
+<!--        SELECT-->
+<!--            oi.id,-->
+<!--            oi.order_no,-->
+<!--            oi.order_title,-->
+<!--            oi.order_status,-->
+<!--            oi.original_amount,-->
+<!--            oi.derate_amount,-->
+<!--            oi.order_amount,-->
+<!--            oi.pay_way,-->
+<!--            od.id as order_detail_id,-->
+<!--            od.item_name,-->
+<!--            od.item_url,-->
+<!--            od.item_price-->
+<!--        FROM-->
+<!--            order_info oi LEFT JOIN order_detail od on oi.id = od.order_id and od.is_deleted = 0-->
+<!--        WHERE-->
+<!--            user_id = #{userId} AND oi.is_deleted = 0-->
+<!--        ORDER BY-->
+<!--            oi.id DESC-->
+<!--          </select>-->
 </mapper>
 

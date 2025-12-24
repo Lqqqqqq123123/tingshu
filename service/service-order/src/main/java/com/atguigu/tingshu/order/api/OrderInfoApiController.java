@@ -7,6 +7,7 @@ import com.atguigu.tingshu.model.order.OrderInfo;
 import com.atguigu.tingshu.order.service.OrderInfoService;
 import com.atguigu.tingshu.vo.order.OrderInfoVo;
 import com.atguigu.tingshu.vo.order.TradeVo;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,6 +70,23 @@ public class OrderInfoApiController {
         OrderInfo orderInfo = orderInfoService.getOrderInfo(orderId);
 
         return Result.ok(orderInfo);
+    }
+
+    /**
+     * 查询当前用户订单列表
+     *
+     * @param page
+     * @param limit
+     * @return
+     */
+    @Login
+    @Operation(summary = "查询当前用户订单列表")
+    @GetMapping("/orderInfo/findUserPage/{page}/{limit}")
+    public Result<Page<OrderInfo>> getOrderByPage(@PathVariable int page, @PathVariable int limit) {
+        Long userId = AuthContextHolder.getUserId();
+        Page<OrderInfo> pageInfo = new Page<>(page, limit);
+        orderInfoService.getOrderByPage(userId, pageInfo);
+        return Result.ok(pageInfo);
     }
 
 

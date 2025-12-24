@@ -3,6 +3,7 @@ package com.atguigu.tingshu.order.service;
 import com.atguigu.tingshu.model.order.OrderInfo;
 import com.atguigu.tingshu.vo.order.OrderInfoVo;
 import com.atguigu.tingshu.vo.order.TradeVo;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.Map;
@@ -41,4 +42,17 @@ public interface OrderInfoService extends IService<OrderInfo> {
     OrderInfo getOrderInfo(String orderId);
 
 
+    /**
+     * 获取当前用户订单列表
+     * @param userId 当前用户ID
+     * @param pageInfo 分页信息
+     * @return 订单列表
+     */
+    Page<OrderInfo> getOrderByPage(Long userId, Page<OrderInfo> pageInfo);
+
+    /**
+     * 根据订单的订单号修改该订单的状态
+     * @param orderNo 订单号
+     */
+    void cancelOrder(String orderNo);
 }

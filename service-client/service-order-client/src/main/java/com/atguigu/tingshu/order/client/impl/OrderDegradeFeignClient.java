@@ -2,8 +2,8 @@ package com.atguigu.tingshu.order.client.impl;
 
 
 import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.model.order.OrderInfo;
 import com.atguigu.tingshu.order.client.OrderFeignClient;
-import com.atguigu.tingshu.vo.account.AccountDeductVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -12,5 +12,10 @@ import org.springframework.stereotype.Component;
 public class OrderDegradeFeignClient implements OrderFeignClient {
 
 
+    @Override
+    public Result<OrderInfo> getOrderInfo(String orderId) {
+        log.info("远程调用订单微服务的 【getOrderInfo】 失败了");
+        return null;
+    }
 }
 
