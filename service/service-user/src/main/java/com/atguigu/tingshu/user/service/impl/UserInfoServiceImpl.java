@@ -27,6 +27,7 @@ import com.atguigu.tingshu.user.strategy.factory.DeliveryStrategyFactory;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.common.error.WxErrorException;
@@ -34,10 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -348,5 +346,18 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 //            userinfo.setVipExpireTime(expireTime);
 //            this.updateById(userinfo);
 //        }
+    }
+
+    @Override
+    public void resetVip(Date date) {
+        // 1. 修改所有是 vip，并且过期的会员的标识
+        LambdaUpdateWrapper<UserInfo> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(UserInfo::getIsVip, 1)
+                .le(UserInfo::getVipExpireTime, date)
+                .or()
+                .isNull(UserInfo::getVipExpireTime)
+                .set(UserInfo::getIsVip, 0);
+
+        this.update(updateWrapper);
     }
 }

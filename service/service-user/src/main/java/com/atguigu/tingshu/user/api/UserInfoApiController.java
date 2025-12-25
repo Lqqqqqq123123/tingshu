@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -95,5 +96,16 @@ public class UserInfoApiController {
         return Result.ok();
     }
 
+
+    /**
+     * 每天凌晨12.00重置会员
+     * @return
+     */
+    @Operation(summary = "每天凌晨12.00重置会员")
+    @GetMapping("/userinfo/resetVip")
+    public Result resetVip(){
+        userInfoService.resetVip(new Date());
+        return Result.ok();
+    }
 }
 

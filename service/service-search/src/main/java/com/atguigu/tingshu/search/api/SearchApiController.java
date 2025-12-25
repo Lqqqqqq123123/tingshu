@@ -108,5 +108,13 @@ public class SearchApiController {
         List<AlbumInfoIndexVo> list = searchService.getRankingList(category1Id, dimension);
         return Result.ok(list);
     }
+
+    @Operation(summary = "更新专辑排行榜信息")
+    @GetMapping("/albumInfo/updateAlbumRanking/{top}")
+    public Result updateAlbumRanking(@PathVariable("top") @RequestParam(defaultValue = "10") Integer top){
+        searchService.updateLatelyAlbumRanking(top);
+        return Result.ok();
+    }
 }
+
 
