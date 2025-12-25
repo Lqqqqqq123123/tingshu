@@ -10,6 +10,16 @@
 	<sql id="columns">
 		id,user_id,title,trade_type,amount,order_no,create_time,update_time,is_deleted
 	</sql>
+    <select id="getUserAccountDetailPage" resultType="com.atguigu.tingshu.model.account.UserAccountDetail">
+        SELECT
+            *
+        FROM
+            user_account_detail
+        WHERE
+              user_id = #{userId}
+          AND trade_type = #{tradeType}
+          AND is_deleted = 0
+    </select>
 
 </mapper>
 

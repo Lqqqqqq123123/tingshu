@@ -346,14 +346,9 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         // 微信支付
         else if(SystemConstant.ORDER_PAY_WAY_WEIXIN.equals(payWay))
         {
-            // 5.1 先去发送一个延迟消息，延迟 15 分钟后，如果订单没有支付，就关闭订单
-            rabbitService.sendDealyMessage(MqConst.EXCHANGE_ORDER, MqConst.ROUTING_CANCEL_ORDER, orderInfo.getOrderNo(),MqConst.CANCEL_ORDER_DELAY_TIME); // 15 分钟后关闭订单
-
-            // todo : 微信支付的逻辑
-
+            // 5.1 发送一个延迟消息，延迟 15 分钟后，如果订单没有支付，就关闭订单，之后，前端拿到我们本次的订单 id 就可以去对接微信支付了。
+            rabbitService.sendDealyMessage(MqConst.EXCHANGE_ORDER, MqConst.ROUTING_CANCEL_ORDER, orderInfo.getOrderNo(), 300); // 5 分钟后关闭订单 MqConst.CANCEL_ORDER_DELAY_TIME
         }
-
-        // 6. 延迟队列，将超时的订单关闭
 
         // 7. 响应结果
         return Map.of("orderNo", orderInfo.getOrderNo());
@@ -460,6 +455,41 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         orderInfoMapper.update(null, wr);
 
         // todo:关闭第三方支付平台支付订单
+    }
+
+    /**
+     * 微信支付成功后，更新订单状态 + 发放商品权益
+     * @param orderNo 订单号
+     * @return  无
+     */
+    @Override
+    public void orderPaySuccess(String orderNo) {
+        // 1. 获取订单信息
+        OrderInfo orderInfo = this.getOrderInfo(orderNo);
+        Assert.notNull(orderInfo, "订单不存在");
+
+        // 2. 判断订单状态，如果订单已经支付，则返回，如果订单已经关闭，说明此时微信刚支付成功且接收到回调，我们的订单已经关闭了，此时就算关闭，也要修改订单状态为已支付
+        String orderStatus = orderInfo.getOrderStatus();
+        if(orderStatus.equals(SystemConstant.ORDER_STATUS_PAID)){
+            throw new RuntimeException("订单已支付");
+        }
+        orderInfo.setOrderStatus(SystemConstant.ORDER_STATUS_PAID);
+        orderInfoMapper.updateById(orderInfo);
+
+        // 3. 调用用户服务，发送商品权益
+        UserPaidRecordVo userPaidRecordVo = new UserPaidRecordVo();
+        userPaidRecordVo.setOrderNo(orderNo);
+        userPaidRecordVo.setUserId(orderInfo.getUserId());
+        userPaidRecordVo.setItemType(orderInfo.getItemType());
+        userPaidRecordVo.setItemIdList(orderInfo.getOrderDetailList().stream().map(OrderDetail::getItemId).toList());
+
+        // 4. 特别的，需要特判远程调用的业务码，如果不是 200， 则抛出异常，回滚本次操作
+        Result result = userFeignClient.savePaidRecord(userPaidRecordVo);
+        if(result.getCode().intValue() != 200){
+            throw new BusinessException(result.getCode(), result.getMessage());
+        }
+
+
     }
 
 

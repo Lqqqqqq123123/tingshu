@@ -1,10 +1,14 @@
 package com.atguigu.tingshu.account.api;
 
+import com.atguigu.tingshu.account.service.UserAccountDetailService;
 import com.atguigu.tingshu.account.service.UserAccountService;
+import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.login.Login;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
+import com.atguigu.tingshu.model.account.UserAccountDetail;
 import com.atguigu.tingshu.vo.account.AccountDeductVo;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +24,9 @@ public class UserAccountApiController {
 
 	@Autowired
 	private UserAccountService userAccountService;
+
+    @Autowired
+    private UserAccountDetailService userAccountDetailService;
 
 
     /**
@@ -49,6 +56,48 @@ public class UserAccountApiController {
     public Result CheckAndDeduct (@RequestBody AccountDeductVo vo)
     {
         userAccountService.checkAndDeduct(vo);
+        return Result.ok();
+    }
+
+
+    /**
+     * 查询用户充值记录
+     * @param page
+     * @param limit
+     * @return
+     */
+    @Login
+    @Operation(summary = "查询用户充值记录")
+    @GetMapping("/userAccount/findUserRechargePage/{page}/{limit}")
+    public Result<Page<UserAccountDetail>> getUserRechargePage(@PathVariable int page, @PathVariable int limit) {
+        Long userId = AuthContextHolder.getUserId();
+        Page<UserAccountDetail> pageInfo = new Page<>(page, limit);
+        userAccountDetailService.getUserAccountDetailPage(pageInfo, SystemConstant.ACCOUNT_TRADE_TYPE_DEPOSIT, userId);
+        return Result.ok(pageInfo);
+    }
+
+    /**
+     * 查询用户消费记录
+     *
+     * @param page
+     * @param limit
+     * @return
+     */
+    @Login
+    @Operation(summary = "查询用户消费记录")
+    @GetMapping("/userAccount/findUserConsumePage/{page}/{limit}")
+    public Result<Page<UserAccountDetail>> getUserConsumePage(@PathVariable int page, @PathVariable int limit) {
+        Long userId = AuthContextHolder.getUserId();
+        Page<UserAccountDetail> pageInfo = new Page<>(page, limit);
+        userAccountDetailService.getUserAccountDetailPage(pageInfo, SystemConstant.ACCOUNT_TRADE_TYPE_MINUS, userId);
+        return Result.ok(pageInfo);
+    }
+
+
+    @Operation(summary = "保存账户明细")
+    @GetMapping("userAccount/saveAccountDetail")
+    public Result saveAccountDetail(UserAccountDetail userAccountDetail){
+        userAccountDetailService.save(userAccountDetail);
         return Result.ok();
     }
 }

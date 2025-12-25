@@ -52,5 +52,6 @@ public class TrackStrategy implements DeliveryStrategy {
                     return paidTrack;
                 }).toList();
         userPaidTrackService.saveBatch(list);
+        // todo: 保存账户日志记录
     }
 }

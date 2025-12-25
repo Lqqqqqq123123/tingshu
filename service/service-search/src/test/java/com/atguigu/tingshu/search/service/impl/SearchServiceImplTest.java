@@ -22,6 +22,10 @@ class SearchServiceImplTest {
     }
 
 
+    @Test
+    void updateLatelyAlbumRanking() {
+        searchService.updateLatelyAlbumRanking(10);
+    }
 
 
 

@@ -2,6 +2,8 @@ package com.atguigu.tingshu.payment.service.impl;
 
 import com.atguigu.tingshu.account.AccountFeignClient;
 import com.atguigu.tingshu.common.constant.SystemConstant;
+import com.atguigu.tingshu.common.execption.BusinessException;
+import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.account.RechargeInfo;
 import com.atguigu.tingshu.model.order.OrderInfo;
 import com.atguigu.tingshu.model.payment.PaymentInfo;
@@ -10,9 +12,12 @@ import com.atguigu.tingshu.payment.mapper.PaymentInfoMapper;
 import com.atguigu.tingshu.payment.service.PaymentInfoService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.wechat.pay.java.service.partnerpayments.jsapi.model.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
+
+import java.util.Date;
 
 @Service
 @SuppressWarnings({"all"})
@@ -34,7 +39,6 @@ public class PaymentInfoServiceImpl extends ServiceImpl<PaymentInfoMapper, Payme
      */
     @Override
     public PaymentInfo savePaymentInfo(String paymentType, String orderNo) {
-
         // 1. 先查，存在，则返回
         LambdaQueryWrapper<PaymentInfo> wr = new LambdaQueryWrapper<>();
         wr.eq(PaymentInfo::getOrderNo, orderNo);
@@ -86,14 +90,49 @@ public class PaymentInfoServiceImpl extends ServiceImpl<PaymentInfoMapper, Payme
             po.setContent(orderInfo.getOrderTitle());
         }
 
-
-        // 微信支付的第三方订单号
-        // po.setOutTradeNo();
-        // 回调时间
-        // po.setCallbackTime();
-        // 回调信息
-        // po.setCallbackContent();
         paymentInfoMapper.insert(po);
         return po;
+    }
+
+    @Override
+    public void updatePaymentInfo(Transaction transaction) {
+        // 1. 获取商侧订单号
+        String orderNo = transaction.getOutTradeNo();
+        // 2. 获取支付信息
+        PaymentInfo paymentInfo = paymentInfoMapper.selectOne(new LambdaQueryWrapper<PaymentInfo>().eq(PaymentInfo::getOrderNo, orderNo));
+        Assert.notNull(paymentInfo, "支付信息不存在");
+
+        // 3. 判断支付状态 1401-未支付 1402-已支付
+        if(SystemConstant.PAYMENT_STATUS_PAID.equals(paymentInfo.getPaymentStatus())){
+            throw new RuntimeException("订单已支付");
+        }
+
+        // 4. 更新支付信息
+        paymentInfo.setPaymentStatus(SystemConstant.PAYMENT_STATUS_PAID);
+        paymentInfo.setOutTradeNo(transaction.getTransactionId());
+        paymentInfo.setCallbackTime(new Date());
+        paymentInfo.setCallbackContent(transaction.toString());
+        paymentInfoMapper.updateById(paymentInfo);
+
+        String paymentType = paymentInfo.getPaymentType();
+        // 5. 根据不同的支付类型，调用不同的业务（更新订单信息 | 充值信息）
+        if(SystemConstant.PAYMENT_TYPE_ORDER.equals(paymentType)){
+            // 5.1 远程调用方法，实现更新订单状态 + 发放用户权益
+            Result result = orderFeignClient.orderPaySuccess(orderNo);
+
+            if(result.getCode().intValue() != 200){
+                throw new BusinessException(result.getCode(), result.getMessage());
+            }
+
+        }else if(SystemConstant.PAYMENT_TYPE_RECHARGE.equals(paymentType))
+        {
+            // 5.2 远程调用方法，实现更新充值订单状态以及账户余额
+            Result result = accountFeignClient.rechargePaySuccess(orderNo);
+            if(result.getCode().intValue() != 200){
+                throw new BusinessException(result.getCode(), result.getMessage());
+            }
+        }
+
+
     }
 }

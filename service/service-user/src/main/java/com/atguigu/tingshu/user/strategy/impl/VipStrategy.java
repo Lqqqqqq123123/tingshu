@@ -82,5 +82,8 @@ public class VipStrategy implements DeliveryStrategy {
         userinfo.setIsVip(1);
         userinfo.setVipExpireTime(expireTime);
         userInfoService.updateById(userinfo);
+
+        // todo 保存账户日志记录
+
     }
 }

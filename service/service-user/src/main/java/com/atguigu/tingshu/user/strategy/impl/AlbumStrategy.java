@@ -1,5 +1,6 @@
 package com.atguigu.tingshu.user.strategy.impl;
 
+import com.atguigu.tingshu.account.AccountFeignClient;
 import com.atguigu.tingshu.model.user.UserPaidAlbum;
 import com.atguigu.tingshu.user.service.UserPaidAlbumService;
 import com.atguigu.tingshu.user.strategy.DeliveryStrategy;
@@ -20,6 +21,8 @@ public class AlbumStrategy implements DeliveryStrategy {
 
     @Autowired
     private UserPaidAlbumService userPaidAlbumService;
+    @Autowired
+    private AccountFeignClient accountFeignClient;
     @Override
     public void delivery(UserPaidRecordVo vo) {
         log.info("liutianba7:专辑发放策略");
@@ -36,6 +39,9 @@ public class AlbumStrategy implements DeliveryStrategy {
         paidAlbum.setAlbumId(vo.getItemIdList().get(0));
         paidAlbum.setUserId(vo.getUserId());
         userPaidAlbumService.save(paidAlbum);
+
+        // 1.1.3 todo 保存账户日志记录
+
     }
 }
 

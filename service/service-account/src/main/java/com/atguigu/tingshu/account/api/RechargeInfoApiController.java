@@ -1,16 +1,17 @@
 package com.atguigu.tingshu.account.api;
 
 import com.atguigu.tingshu.account.service.RechargeInfoService;
+import com.atguigu.tingshu.common.login.Login;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.account.RechargeInfo;
+import com.atguigu.tingshu.vo.account.RechargeInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @Tag(name = "充值管理")
 @RestController
@@ -35,5 +36,30 @@ public class RechargeInfoApiController {
         return Result.ok(one);
     }
 
+    /**
+     * 保存充值
+     * @param rechargeInfoVo
+     * @return {orderNo:"充值订单编号"}
+     */
+    @Login
+    @Operation(summary = "保存充值")
+    @PostMapping("/rechargeInfo/submitRecharge")
+    public Result<Map<String, String>> submitRecharge(@RequestBody RechargeInfoVo rechargeInfoVo){
+        Map<String, String> map = rechargeInfoService.submitRecharge(rechargeInfoVo);
+        return Result.ok(map);
+    }
+
+
+    /**
+     * 	微信支付成功后，处理充值业务 供支付接口调用
+     * @param orderNo
+     * @return
+     */
+    @Operation(summary = "微信支付成功后，处理充值业务")
+    @GetMapping("/rechargeInfo/rechargePaySuccess/{orderNo}")
+    public Result rechargePaySuccess(@PathVariable String orderNo){
+        rechargeInfoService.rechargePaySuccess(orderNo);
+        return Result.ok();
+    }
 }
 

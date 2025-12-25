@@ -90,5 +90,17 @@ public class OrderInfoApiController {
     }
 
 
+    /**
+     * 微信支付成功后，更新订单状态 + 发放商品权益
+     * @param orderNo 订单号
+     * @return  无
+     */
+    @Operation(summary = "微信支付成功后，更新订单状态 + 发放商品权益")
+    @GetMapping("/orderInfo/orderPaySuccess/{orderNo}")
+    public Result orderPaySuccess(@PathVariable String orderNo){
+        orderInfoService.orderPaySuccess(orderNo);
+        return Result.ok();
+    }
+
 }
 

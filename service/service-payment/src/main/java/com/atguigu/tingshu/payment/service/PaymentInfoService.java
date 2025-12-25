@@ -2,6 +2,7 @@ package com.atguigu.tingshu.payment.service;
 
 import com.atguigu.tingshu.model.payment.PaymentInfo;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.wechat.pay.java.service.partnerpayments.jsapi.model.Transaction;
 
 public interface PaymentInfoService extends IService<PaymentInfo> {
 
@@ -13,4 +14,9 @@ public interface PaymentInfoService extends IService<PaymentInfo> {
      */
     public PaymentInfo savePaymentInfo(String paymentType, String orderNo);
 
+    /**
+     * 更新本地交易记录
+     * @param transaction 微信交易记录
+     */
+    void updatePaymentInfo(Transaction transaction);
 }

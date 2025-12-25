@@ -111,7 +111,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             message.put("userId", info.getId());
             message.put("amount", 1000);
             message.put("orderNo", "free_amount" + DateUtil.today().replaceAll("-", "") + IdUtil.getSnowflakeNextId());
-            message.put("title", "首次使用，赠送余额100元");
+            message.put("title", "首次使用，赠送余额1000元");
 
             rabbitService.sendMessage(MqConst.EXCHANGE_USER, MqConst.ROUTING_USER_REGISTER, message);
         }

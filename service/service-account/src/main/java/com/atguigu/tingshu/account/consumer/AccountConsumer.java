@@ -1,10 +1,14 @@
 package com.atguigu.tingshu.account.consumer;
 
+import com.atguigu.tingshu.account.service.RechargeInfoService;
 import com.atguigu.tingshu.account.service.UserAccountDetailService;
 import com.atguigu.tingshu.account.service.UserAccountService;
+import com.atguigu.tingshu.common.constant.SystemConstant;
 import com.atguigu.tingshu.common.rabbit.constant.MqConst;
+import com.atguigu.tingshu.model.account.RechargeInfo;
 import com.atguigu.tingshu.model.account.UserAccount;
 import com.atguigu.tingshu.model.account.UserAccountDetail;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.rabbitmq.client.Channel;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +43,9 @@ public class AccountConsumer {
 
     @Autowired
     private UserAccountDetailService userAccountDetailService;
+
+    @Autowired
+    private RechargeInfoService rechargeInfoService;
 
     @RabbitListener(bindings = @QueueBinding(
             value = @Queue(value = "tingshu.account.queue"),
@@ -85,6 +92,34 @@ public class AccountConsumer {
             userAccountDetailService.save(detail);
 
             // 手动确认
+            channel.basicAck(msg.getMessageProperties().getDeliveryTag(), true);
+        }
+
+    }
+
+    @RabbitListener(queues = "cancel_recharge_queue")
+    @SneakyThrows
+    public void cancelRecharge(String orderNo, Channel channel, Message msg){
+        log.info("liutianba7：监听到取消充值订单的延迟消息");
+
+        // 修改充值信息状态（天然幂等性）
+
+//        LambdaUpdateWrapper<RechargeInfo> wr = new LambdaUpdateWrapper<>();
+//        wr.eq(RechargeInfo::getOrderNo, orderNo);
+//        wr.set(RechargeInfo::getRechargeStatus, SystemConstant.ORDER_STATUS_CANCEL);
+//        rechargeInfoService.update(wr);
+
+        // 如果已经支付了，就不能再取消了
+        RechargeInfo one = rechargeInfoService.getOne(new LambdaQueryWrapper<RechargeInfo>().eq(RechargeInfo::getOrderNo, orderNo));
+
+        if(one.getRechargeStatus().equals(SystemConstant.ORDER_STATUS_PAID)){
+            log.info("liutianba7：已经支付了，不能再取消了");
+            channel.basicAck(msg.getMessageProperties().getDeliveryTag(), true);
+        }
+        else{
+            log.info("liutianba7：修改充值信息状态");
+            one.setRechargeStatus(SystemConstant.ORDER_STATUS_CANCEL);
+            rechargeInfoService.updateById(one);
             channel.basicAck(msg.getMessageProperties().getDeliveryTag(), true);
         }
 

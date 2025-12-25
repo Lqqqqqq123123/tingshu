@@ -25,4 +25,13 @@ public interface OrderFeignClient {
     @GetMapping("/orderInfo/getOrderInfo/{orderId}")
     public Result<OrderInfo> getOrderInfo(@PathVariable("orderId") String orderId);
 
+
+
+    /**
+     * 微信支付成功后，更新订单状态 + 发放商品权益
+     * @param orderNo 订单号
+     * @return  无
+     */
+    @GetMapping("/orderInfo/orderPaySuccess/{orderNo}")
+    public Result orderPaySuccess(@PathVariable("orderNo") String orderNo);
 }

@@ -51,8 +51,15 @@ public interface OrderInfoService extends IService<OrderInfo> {
     Page<OrderInfo> getOrderByPage(Long userId, Page<OrderInfo> pageInfo);
 
     /**
-     * 根据订单的订单号修改该订单的状态
+     * 根据订单的订单号修改该订单的状态为已取消
      * @param orderNo 订单号
      */
     void cancelOrder(String orderNo);
+
+    /**
+     * 微信支付成功后，更新订单状态 + 发放商品权益
+     * @param orderNo 订单号
+     * @return  无
+     */
+    void orderPaySuccess(String orderNo);
 }
