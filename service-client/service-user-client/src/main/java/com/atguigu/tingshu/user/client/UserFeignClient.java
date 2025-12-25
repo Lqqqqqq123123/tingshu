@@ -79,4 +79,11 @@ public interface UserFeignClient {
      */
     @PostMapping("/userInfo/savePaidRecord")
     public Result savePaidRecord(@RequestBody UserPaidRecordVo vo);
+
+    /**
+     * 每天凌晨12.00重置会员
+     * @return
+     */
+    @GetMapping("/userinfo/resetVip")
+    public Result resetVip();
 }

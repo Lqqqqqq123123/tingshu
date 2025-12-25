@@ -24,6 +24,7 @@
         <module name="model" />
         <module name="service-dispatch" />
         <module name="service-account" />
+        <module name="xxl-job-admin" />
         <module name="service-payment" />
       </profile>
     </annotationProcessing>

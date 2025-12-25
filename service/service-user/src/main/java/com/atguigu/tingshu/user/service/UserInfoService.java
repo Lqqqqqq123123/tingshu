@@ -6,6 +6,7 @@ import com.atguigu.tingshu.vo.user.UserPaidRecordVo;
 import com.baomidou.mybatisplus.extension.service.IService;
 import me.chanjar.weixin.common.error.WxErrorException;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -64,4 +65,10 @@ public interface UserInfoService extends IService<UserInfo> {
      * @return 虚拟物品发货结果
      */
     void savePaidRecord(UserPaidRecordVo vo);
+
+    /**
+     * 每天凌晨12.00重置会员
+     * @return
+     */
+    void resetVip(Date date);
 }

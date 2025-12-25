@@ -51,4 +51,10 @@ public class UserDegradeFeignClient implements UserFeignClient {
         log.info("[远程调用 user 服务的 savePaidRecord 出现异常]");
         return null;
     }
+
+    @Override
+    public Result resetVip() {
+        log.info("[远程调用 user 服务的 resetVip 出现异常]");
+        return null;
+    }
 }
